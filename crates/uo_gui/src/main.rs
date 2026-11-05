@@ -8,12 +8,53 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use uo_core::*;
 
-/// All 18 functional tabs supported by UOFiddler
+/// All 38 bitfield flags defined in Ultima Online TileData
+pub const TILEDATA_FLAGS: [(&str, u64); 38] = [
+    ("Background", 1 << 0),
+    ("Weapon", 1 << 1),
+    ("Transparent", 1 << 2),
+    ("Translucent", 1 << 3),
+    ("Wall", 1 << 4),
+    ("Damaging", 1 << 5),
+    ("Impassable", 1 << 6),
+    ("Wet", 1 << 7),
+    ("Unknown1", 1 << 8),
+    ("Surface", 1 << 9),
+    ("Bridge", 1 << 10),
+    ("Generic", 1 << 11),
+    ("Window", 1 << 12),
+    ("NoShoot", 1 << 13),
+    ("PrefixA", 1 << 14),
+    ("PrefixAn", 1 << 15),
+    ("Internal", 1 << 16),
+    ("Foliage", 1 << 17),
+    ("PartialHue", 1 << 18),
+    ("Unknown2", 1 << 19),
+    ("Map", 1 << 20),
+    ("Container", 1 << 21),
+    ("Wearable", 1 << 22),
+    ("LightSource", 1 << 23),
+    ("Animated", 1 << 24),
+    ("NoDiagonal", 1 << 25),
+    ("Unknown3", 1 << 26),
+    ("Armor", 1 << 27),
+    ("Roof", 1 << 28),
+    ("Door", 1 << 29),
+    ("StairBack", 1 << 30),
+    ("StairRight", 1 << 31),
+    ("AlphaBlend", 1 << 32),
+    ("UseNewArt", 1 << 33),
+    ("ArtUsed", 1 << 34),
+    ("NoHouse", 1 << 35),
+    ("NoDraw", 1 << 36),
+    ("HoverOver", 1 << 37),
+];
+
+/// All 17 functional tabs supported by UOFiddler (TileData integrated directly into Items & Land)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UoTab {
     Items,
     LandTiles,
-    TileData,
     Gumps,
     Hues,
     Textures,
@@ -32,10 +73,9 @@ pub enum UoTab {
 }
 
 impl UoTab {
-    pub const ALL: [UoTab; 18] = [
+    pub const ALL: [UoTab; 17] = [
         UoTab::Items,
         UoTab::LandTiles,
-        UoTab::TileData,
         UoTab::Gumps,
         UoTab::Hues,
         UoTab::Textures,
@@ -57,7 +97,6 @@ impl UoTab {
         match self {
             UoTab::Items => "📦 Items",
             UoTab::LandTiles => "🌱 Land Tiles",
-            UoTab::TileData => "📋 TileData",
             UoTab::Gumps => "🖼 Gumps",
             UoTab::Hues => "🎨 Hues",
             UoTab::Textures => "🧱 Textures",
@@ -85,8 +124,7 @@ impl UoTab {
             | UoTab::Animations
             | UoTab::Multis => TabCategory::Art,
 
-            UoTab::TileData
-            | UoTab::Hues
+            UoTab::Hues
             | UoTab::RadarCol
             | UoTab::Cliloc
             | UoTab::AnimData
@@ -119,9 +157,9 @@ impl TabCategory {
 
     pub fn title(&self) -> &'static str {
         match self {
-            TabCategory::Art => "🎨 Arte & Gráficos",
-            TabCategory::Data => "📋 Dados & Tabelas",
-            TabCategory::World => "🗺️ Mundo & Áudio",
+            TabCategory::Art => "🎨 Arte & Gráficos (6)",
+            TabCategory::Data => "📋 Dados & Tabelas (5)",
+            TabCategory::World => "🗺️ Mundo & Áudio (6)",
         }
     }
 }
@@ -481,14 +519,6 @@ pub struct UoFiddlerApp {
     land_view_mode: bool, // false = Grid, true = List
     land_thumb_cache: HashMap<usize, egui::TextureHandle>,
 
-    // TileData Tab state
-    tiledata_mode_enhanced: bool,
-    tiledata_is_items: bool, // true = Items, false = Land
-    tiledata_search: String,
-    tiledata_selected: usize,
-    tiledata_preview_tex: Option<egui::TextureHandle>,
-    tiledata_zoom: f32,
-
     // Animations Tab state
     anim_mode_enhanced: bool,
     anim_body_defs: Vec<AnimationDef>,
@@ -675,12 +705,6 @@ impl Default for UoFiddlerApp {
             land_zoom: 1.0_f32,
             land_view_mode: false, // Grid mode by default
             land_thumb_cache: HashMap::new(),
-            tiledata_mode_enhanced: false,
-            tiledata_is_items: true,
-            tiledata_search: String::new(),
-            tiledata_selected: 2,
-            tiledata_preview_tex: None,
-            tiledata_zoom: 1.0_f32,
             anim_mode_enhanced: false,
             anim_body_defs,
             anim_search: String::new(),
@@ -1483,25 +1507,6 @@ impl UoFiddlerApp {
         self.land_texture = None;
     }
 
-    fn load_tiledata_preview(&mut self, ctx: &egui::Context) {
-        let bmp_opt = if self.tiledata_is_items {
-            self.get_item_bitmap(self.tiledata_selected)
-        } else {
-            self.get_land_bitmap(self.tiledata_selected)
-        };
-
-        if let Some(bmp) = bmp_opt {
-            let img = egui::ColorImage::from_rgba_unmultiplied(
-                [bmp.width as usize, bmp.height as usize],
-                &bmp.rgba,
-            );
-            self.tiledata_preview_tex =
-                Some(ctx.load_texture("td_preview", img, egui::TextureOptions::NEAREST));
-        } else {
-            self.tiledata_preview_tex = None;
-        }
-    }
-
     fn load_gump(&mut self, ctx: &egui::Context) {
         let gi_opt = if self.gump_mode_enhanced {
             self.gump_index_ec.as_ref().or(self.gump_index.as_ref())
@@ -1749,29 +1754,6 @@ impl UoFiddlerApp {
                     self.load_land_preview(ctx);
                 }
             }
-            UoTab::TileData => {
-                let total: usize = if self.tiledata_is_items {
-                    0x10000
-                } else {
-                    0x4000
-                };
-                let old = self.tiledata_selected;
-                if down {
-                    self.tiledata_selected =
-                        (self.tiledata_selected + 1).min(total.saturating_sub(1));
-                } else if up {
-                    self.tiledata_selected = self.tiledata_selected.saturating_sub(1);
-                } else if pgdn {
-                    self.tiledata_selected =
-                        (self.tiledata_selected + 10).min(total.saturating_sub(1));
-                } else if pgup {
-                    self.tiledata_selected = self.tiledata_selected.saturating_sub(10);
-                }
-                if self.tiledata_selected != old {
-                    self.keyboard_navigated = true;
-                    self.load_tiledata_preview(ctx);
-                }
-            }
             UoTab::Gumps => {
                 if !self.valid_gumps.is_empty() {
                     let cur_idx = self
@@ -2008,7 +1990,6 @@ impl eframe::App for UoFiddlerApp {
                 self.reload_all_client_files();
                 self.load_item_preview(ctx);
                 self.load_land_preview(ctx);
-                self.load_tiledata_preview(ctx);
                 self.load_animation(ctx);
                 self.load_gump(ctx);
                 self.load_texture_preview(ctx);
@@ -2118,11 +2099,10 @@ impl eframe::App for UoFiddlerApp {
                             self.load_item_preview(ctx);
                         }
                     }
-                    if ui.selectable_label(is_data, "📋 Dados (6)").clicked() {
+                    if ui.selectable_label(is_data, "📋 Dados (5)").clicked() {
                         self.active_category = Some(TabCategory::Data);
                         if self.active_tab.category() != TabCategory::Data {
-                            self.active_tab = UoTab::TileData;
-                            self.load_tiledata_preview(ctx);
+                            self.active_tab = UoTab::Hues;
                         }
                     }
                     if ui.selectable_label(is_world, "🗺️ Mundo (6)").clicked() {
@@ -2149,7 +2129,6 @@ impl eframe::App for UoFiddlerApp {
                             self.reload_all_client_files();
                             self.load_item_preview(ctx);
                             self.load_land_preview(ctx);
-                            self.load_tiledata_preview(ctx);
                             self.load_animation(ctx);
                             self.load_gump(ctx);
                             self.load_texture_preview(ctx);
@@ -2289,7 +2268,6 @@ impl eframe::App for UoFiddlerApp {
         egui::CentralPanel::default().show(ctx, |ui| match self.active_tab {
             UoTab::Items => self.render_items_tab(ui, ctx),
             UoTab::LandTiles => self.render_land_tiles_tab(ui, ctx),
-            UoTab::TileData => self.render_tiledata_tab(ui, ctx),
             UoTab::Gumps => self.render_gumps_tab(ui, ctx),
             UoTab::Hues => self.render_hues_tab(ui),
             UoTab::Textures => self.render_textures_tab(ui, ctx),
@@ -2406,7 +2384,6 @@ impl eframe::App for UoFiddlerApp {
                                 self.reload_all_client_files();
                                 self.load_item_preview(ctx);
                                 self.load_land_preview(ctx);
-                                self.load_tiledata_preview(ctx);
                                 self.load_animation(ctx);
                                 self.load_gump(ctx);
                                 self.load_texture_preview(ctx);
@@ -2747,6 +2724,104 @@ impl UoFiddlerApp {
                 }
             });
 
+        // 2. Right Panel: TileData Properties & Flags Inspector
+        egui::SidePanel::right("item_inspector_panel")
+            .resizable(true)
+            .default_width(320.0)
+            .min_width(280.0)
+            .show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("📋 Inspetor TileData");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .button("💾 Aplicar")
+                            .on_hover_text("Salvar modificações deste item na memória")
+                            .clicked()
+                        {
+                            self.status_message = format!(
+                                "✓ Propriedades do Item 0x{:04X} salvas na memória!",
+                                self.item_selected
+                            );
+                        }
+                    });
+                });
+                ui.separator();
+
+                if let Some(td) = &mut self.tiledata {
+                    if let Some(item_info) = td.item_tiles.get_mut(self.item_selected) {
+                        egui::Grid::new("item_props_grid")
+                            .num_columns(2)
+                            .spacing([12.0, 6.0])
+                            .show(ui, |ui| {
+                                ui.label("Nome:");
+                                ui.text_edit_singleline(&mut item_info.name);
+                                ui.end_row();
+
+                                ui.label("Peso:");
+                                ui.add(egui::DragValue::new(&mut item_info.weight).range(0..=255));
+                                ui.end_row();
+
+                                ui.label("Altura:");
+                                ui.add(egui::DragValue::new(&mut item_info.height).range(0..=255));
+                                ui.end_row();
+
+                                ui.label("Anim ID:");
+                                ui.horizontal(|ui| {
+                                    ui.add(egui::DragValue::new(&mut item_info.anim_id).range(0..=65535));
+                                    ui.label(format!("(0x{:04X})", item_info.anim_id));
+                                });
+                                ui.end_row();
+
+                                ui.label("Qualidade / Camada:");
+                                ui.add(egui::DragValue::new(&mut item_info.quality).range(0..=255));
+                                ui.end_row();
+
+                                ui.label("Hue Padrão:");
+                                ui.add(egui::DragValue::new(&mut item_info.hue).range(0..=255));
+                                ui.end_row();
+
+                                ui.label("Flags Hex:");
+                                ui.label(
+                                    egui::RichText::new(format!("0x{:016X}", item_info.flags))
+                                        .monospace()
+                                        .color(egui::Color32::from_rgb(129, 140, 248)),
+                                );
+                                ui.end_row();
+                            });
+
+                        ui.add_space(8.0);
+                        ui.separator();
+                        ui.label(egui::RichText::new("Flags (Bitfield 38):").strong());
+
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                egui::Grid::new("item_flags_grid")
+                                    .num_columns(2)
+                                    .spacing([12.0, 4.0])
+                                    .show(ui, |ui| {
+                                        for (i, (name, mask)) in TILEDATA_FLAGS.iter().enumerate() {
+                                            let mut checked = (item_info.flags & mask) != 0;
+                                            if ui.checkbox(&mut checked, *name).changed() {
+                                                if checked {
+                                                    item_info.flags |= mask;
+                                                } else {
+                                                    item_info.flags &= !mask;
+                                                }
+                                            }
+                                            if (i + 1) % 2 == 0 {
+                                                ui.end_row();
+                                            }
+                                        }
+                                    });
+                            });
+                    }
+                } else {
+                    ui.label("TileData não carregado.");
+                }
+            });
+
+        // 3. Central Panel: Art Canvas Preview & Zoom
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading(format!(
@@ -2804,27 +2879,8 @@ impl UoFiddlerApp {
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
                 }
-            });
-            if let Some(td) = &self.tiledata {
-                if let Some(item_info) = td.item_tiles.get(self.item_selected) {
-                    ui.label(format!(
-                        "Nome: {}",
-                        if item_info.name.is_empty() {
-                            "(Sem nome)"
-                        } else {
-                            &item_info.name
-                        }
-                    ));
-                    ui.label(format!(
-                        "Peso: {} | Altura: {} | AnimID: 0x{:04X}",
-                        item_info.weight, item_info.height, item_info.anim_id
-                    ));
-                    ui.label(format!("Flags: 0x{:016X}", item_info.flags));
-                }
-            }
 
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
+                ui.separator();
                 ui.label("Testar Hue:");
                 if ui
                     .add(egui::DragValue::new(&mut self.item_hue).range(0..=3000))
@@ -3193,6 +3249,103 @@ impl UoFiddlerApp {
                 }
             });
 
+        // 2. Right Panel: TileData Properties & Flags Inspector for Land Tiles
+        egui::SidePanel::right("land_inspector_panel")
+            .resizable(true)
+            .default_width(320.0)
+            .min_width(280.0)
+            .show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("📋 Inspetor TileData");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .button("💾 Aplicar")
+                            .on_hover_text("Salvar modificações deste terreno na memória")
+                            .clicked()
+                        {
+                            self.status_message = format!(
+                                "✓ Propriedades do Terreno 0x{:04X} salvas na memória!",
+                                self.land_selected
+                            );
+                        }
+                    });
+                });
+                ui.separator();
+
+                if let Some(td) = &mut self.tiledata {
+                    if let Some(land_info) = td.land_tiles.get_mut(self.land_selected) {
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                egui::Grid::new("land_prop_grid")
+                                    .num_columns(2)
+                                    .spacing([8.0, 6.0])
+                                    .show(ui, |ui| {
+                                        ui.label(egui::RichText::new("Nome:").strong());
+                                        ui.text_edit_singleline(&mut land_info.name);
+                                        ui.end_row();
+
+                                        ui.label("Texture ID:");
+                                        ui.horizontal(|ui| {
+                                            ui.add(egui::DragValue::new(&mut land_info.texture_id));
+                                            ui.label(format!("(0x{:04X})", land_info.texture_id));
+                                        });
+                                        ui.end_row();
+
+                                        ui.label("Flags (Hex):");
+                                        let mut flags_hex = format!("0x{:016X}", land_info.flags);
+                                        if ui
+                                            .add(
+                                                egui::TextEdit::singleline(&mut flags_hex)
+                                                    .desired_width(140.0),
+                                            )
+                                            .changed()
+                                        {
+                                            let clean = flags_hex
+                                                .trim_start_matches("0x")
+                                                .trim_start_matches("0X");
+                                            if let Ok(val) = u64::from_str_radix(clean, 16) {
+                                                land_info.flags = val;
+                                            }
+                                        }
+                                        ui.end_row();
+                                    });
+
+                                ui.add_space(8.0);
+                                ui.separator();
+                                ui.label(egui::RichText::new("Flags (Bitfield):").strong());
+                                ui.add_space(4.0);
+
+                                // 2 columns for 38 flags
+                                egui::Grid::new("land_flags_grid")
+                                    .num_columns(2)
+                                    .spacing([6.0, 4.0])
+                                    .show(ui, |ui| {
+                                        for (idx, (name, mask)) in TILEDATA_FLAGS.iter().enumerate()
+                                        {
+                                            let mut is_set = (land_info.flags & mask) != 0;
+                                            if ui.checkbox(&mut is_set, *name).changed() {
+                                                if is_set {
+                                                    land_info.flags |= mask;
+                                                } else {
+                                                    land_info.flags &= !mask;
+                                                }
+                                            }
+                                            if (idx + 1) % 2 == 0 {
+                                                ui.end_row();
+                                            }
+                                        }
+                                    });
+                            });
+                    } else {
+                        ui.label("Terreno não encontrado no TileData.");
+                    }
+                } else {
+                    ui.label("TileData não carregado.");
+                }
+            });
+
+        // 3. Central Panel: Land Tile Graphic Preview
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading(format!(
@@ -3251,22 +3404,6 @@ impl UoFiddlerApp {
                     self.preview_checkerboard = !self.preview_checkerboard;
                 }
             });
-            if let Some(td) = &self.tiledata {
-                if let Some(land_info) = td.land_tiles.get(self.land_selected) {
-                    ui.label(format!(
-                        "Nome: {}",
-                        if land_info.name.is_empty() {
-                            "(Sem nome)"
-                        } else {
-                            &land_info.name
-                        }
-                    ));
-                    ui.label(format!(
-                        "Flags: 0x{:016X} | Texture ID: 0x{:04X}",
-                        land_info.flags, land_info.texture_id
-                    ));
-                }
-            }
 
             ui.add_space(8.0);
 
@@ -3348,347 +3485,7 @@ impl UoFiddlerApp {
         });
     }
 
-    // 3. TILEDATA TAB (Full Property Editor, 38 Bitfield Flags Checkboxes & Zoom)
-    fn render_tiledata_tab(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        egui::SidePanel::left("td_left_panel")
-            .resizable(true)
-            .default_width(320.0)
-            .min_width(260.0)
-            .show_inside(ui, |ui| {
-                // Client / Source selector
-                ui.horizontal(|ui| {
-                    let classic_btn = ui.selectable_label(
-                        !self.tiledata_mode_enhanced,
-                        "📜 Clássico (tiledata.mul)",
-                    );
-                    if classic_btn.clicked() && self.tiledata_mode_enhanced {
-                        self.tiledata_mode_enhanced = false;
-                        self.load_tiledata_preview(ctx);
-                    }
-                    let enhanced_btn =
-                        ui.selectable_label(self.tiledata_mode_enhanced, "✨ Enhanced (GameData)");
-                    if enhanced_btn.clicked() && !self.tiledata_mode_enhanced {
-                        self.tiledata_mode_enhanced = true;
-                        self.load_tiledata_preview(ctx);
-                    }
-                });
-
-                ui.horizontal(|ui| {
-                    if ui
-                        .selectable_label(self.tiledata_is_items, "Items (ItemData)")
-                        .clicked()
-                    {
-                        self.tiledata_is_items = true;
-                        self.load_tiledata_preview(ctx);
-                    }
-                    if ui
-                        .selectable_label(!self.tiledata_is_items, "Land (LandData)")
-                        .clicked()
-                    {
-                        self.tiledata_is_items = false;
-                        self.load_tiledata_preview(ctx);
-                    }
-                });
-
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.label("Buscar:");
-                    ui.text_edit_singleline(&mut self.tiledata_search);
-                    if ui.button("✖").clicked() {
-                        self.tiledata_search.clear();
-                    }
-                });
-
-                ui.separator();
-                let total = if self.tiledata_is_items {
-                    self.tiledata
-                        .as_ref()
-                        .map(|td| td.item_tiles.len())
-                        .unwrap_or(0x10000)
-                } else {
-                    self.tiledata
-                        .as_ref()
-                        .map(|td| td.land_tiles.len())
-                        .unwrap_or(0x4000)
-                };
-
-                let row_height = 20.0;
-                let search_lower = self.tiledata_search.trim().to_lowercase();
-
-                egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .show_rows(ui, row_height, total, |ui, row_range| {
-                        if self.keyboard_navigated {
-                            let target_y = (self.tiledata_selected as f32) * row_height;
-                            ui.scroll_to_rect(
-                                egui::Rect::from_min_size(
-                                    egui::pos2(0.0, target_y),
-                                    egui::vec2(10.0, row_height),
-                                ),
-                                Some(egui::Align::Center),
-                            );
-                        }
-                        for id in row_range {
-                            let name = if self.tiledata_is_items {
-                                self.tiledata
-                                    .as_ref()
-                                    .and_then(|td| td.item_tiles.get(id))
-                                    .map(|t| t.name.as_str())
-                                    .unwrap_or("")
-                            } else {
-                                self.tiledata
-                                    .as_ref()
-                                    .and_then(|td| td.land_tiles.get(id))
-                                    .map(|t| t.name.as_str())
-                                    .unwrap_or("")
-                            };
-
-                            let hex_str = format!("0x{:04X} ({})", id, id);
-                            if !search_lower.is_empty()
-                                && !hex_str.to_lowercase().contains(&search_lower)
-                                && !name.to_lowercase().contains(&search_lower)
-                            {
-                                continue;
-                            }
-
-                            let label = if name.is_empty() {
-                                hex_str
-                            } else {
-                                format!("{} - {}", hex_str, name)
-                            };
-                            let is_sel = self.tiledata_selected == id;
-                            let resp = ui.selectable_label(is_sel, label);
-                            if resp.clicked() {
-                                self.tiledata_selected = id;
-                                self.load_tiledata_preview(ctx);
-                            }
-                            if is_sel && self.keyboard_navigated {
-                                resp.scroll_to_me(Some(egui::Align::Center));
-                            }
-                        }
-                    });
-            });
-
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Propriedades do TileData - 0x{:04X} ({})",
-                self.tiledata_selected, self.tiledata_selected
-            ));
-            ui.separator();
-
-            ui.horizontal(|ui| {
-                // Art Preview Canvas with Zoom Tool
-                ui.horizontal(|ui| {
-                    egui::Frame::canvas(ui.style()).show(ui, |ui| {
-                        let (rect, _) =
-                            ui.allocate_exact_size(egui::vec2(140.0, 140.0), egui::Sense::hover());
-                        ui.painter()
-                            .rect_filled(rect, 4.0, egui::Color32::from_rgb(22, 22, 28));
-                        if let Some(tex) = &self.tiledata_preview_tex {
-                            let center = rect.center();
-                            let size = tex.size_vec2() * self.tiledata_zoom;
-                            let img_rect = egui::Rect::from_center_size(center, size);
-                            ui.painter().image(
-                                tex.id(),
-                                img_rect,
-                                egui::Rect::from_min_max(
-                                    egui::pos2(0.0, 0.0),
-                                    egui::pos2(1.0, 1.0),
-                                ),
-                                egui::Color32::WHITE,
-                            );
-                        } else {
-                            ui.painter().text(
-                                rect.center(),
-                                egui::Align2::CENTER_CENTER,
-                                "(Sem imagem)",
-                                egui::FontId::proportional(12.0),
-                                egui::Color32::GRAY,
-                            );
-                        }
-                    });
-
-                    ui.vertical(|ui| {
-                        ui.label(
-                            egui::RichText::new(format!("{:.1}x", self.tiledata_zoom)).small(),
-                        );
-                        ui.add_sized(
-                            [24.0, 95.0],
-                            egui::Slider::new(&mut self.tiledata_zoom, 0.5..=4.0)
-                                .vertical()
-                                .show_value(false),
-                        );
-                        if ui.button("1x").clicked() {
-                            self.tiledata_zoom = 1.0;
-                        }
-                    });
-                });
-
-                // Form Properties
-                ui.vertical(|ui| {
-                    if let Some(td) = &mut self.tiledata {
-                        if self.tiledata_is_items {
-                            if let Some(item) = td.item_tiles.get_mut(self.tiledata_selected) {
-                                egui::Grid::new("item_props_grid")
-                                    .num_columns(2)
-                                    .spacing([12.0, 6.0])
-                                    .show(ui, |ui| {
-                                        ui.label("Nome:");
-                                        ui.text_edit_singleline(&mut item.name);
-                                        ui.end_row();
-
-                                        ui.label("Peso:");
-                                        ui.add(
-                                            egui::DragValue::new(&mut item.weight).range(0..=255),
-                                        );
-                                        ui.end_row();
-
-                                        ui.label("Quality / Layer:");
-                                        ui.add(
-                                            egui::DragValue::new(&mut item.quality).range(0..=255),
-                                        );
-                                        ui.end_row();
-
-                                        ui.label("Altura:");
-                                        ui.add(
-                                            egui::DragValue::new(&mut item.height).range(0..=255),
-                                        );
-                                        ui.end_row();
-
-                                        ui.label("Anim ID:");
-                                        ui.add(
-                                            egui::DragValue::new(&mut item.anim_id)
-                                                .range(0..=65535),
-                                        );
-                                        ui.end_row();
-
-                                        ui.label("Hue:");
-                                        ui.add(egui::DragValue::new(&mut item.hue).range(0..=255));
-                                        ui.end_row();
-
-                                        ui.label("Flags Hex:");
-                                        ui.label(format!("0x{:016X}", item.flags));
-                                        ui.end_row();
-                                    });
-                            }
-                        } else {
-                            if let Some(land) = td.land_tiles.get_mut(self.tiledata_selected) {
-                                egui::Grid::new("land_props_grid")
-                                    .num_columns(2)
-                                    .spacing([12.0, 6.0])
-                                    .show(ui, |ui| {
-                                        ui.label("Nome:");
-                                        ui.text_edit_singleline(&mut land.name);
-                                        ui.end_row();
-
-                                        ui.label("Texture ID:");
-                                        ui.add(
-                                            egui::DragValue::new(&mut land.texture_id)
-                                                .range(0..=65535),
-                                        );
-                                        ui.end_row();
-
-                                        ui.label("Flags Hex:");
-                                        ui.label(format!("0x{:016X}", land.flags));
-                                        ui.end_row();
-                                    });
-                            }
-                        }
-                    }
-                });
-            });
-
-            ui.add_space(8.0);
-            ui.heading("Flags do TileData (Bitfield):");
-            ui.separator();
-
-            let all_flags: [(&str, u64); 38] = [
-                ("Background", 1 << 0),
-                ("Weapon", 1 << 1),
-                ("Transparent", 1 << 2),
-                ("Translucent", 1 << 3),
-                ("Wall", 1 << 4),
-                ("Damaging", 1 << 5),
-                ("Impassable", 1 << 6),
-                ("Wet", 1 << 7),
-                ("Unknown1", 1 << 8),
-                ("Surface", 1 << 9),
-                ("Bridge", 1 << 10),
-                ("Generic", 1 << 11),
-                ("Window", 1 << 12),
-                ("NoShoot", 1 << 13),
-                ("PrefixA", 1 << 14),
-                ("PrefixAn", 1 << 15),
-                ("Internal", 1 << 16),
-                ("Foliage", 1 << 17),
-                ("PartialHue", 1 << 18),
-                ("Unknown2", 1 << 19),
-                ("Map", 1 << 20),
-                ("Container", 1 << 21),
-                ("Wearable", 1 << 22),
-                ("LightSource", 1 << 23),
-                ("Animated", 1 << 24),
-                ("NoDiagonal", 1 << 25),
-                ("Unknown3", 1 << 26),
-                ("Armor", 1 << 27),
-                ("Roof", 1 << 28),
-                ("Door", 1 << 29),
-                ("StairBack", 1 << 30),
-                ("StairRight", 1 << 31),
-                ("AlphaBlend", 1 << 32),
-                ("UseNewArt", 1 << 33),
-                ("ArtUsed", 1 << 34),
-                ("NoHouse", 1 << 35),
-                ("NoDraw", 1 << 36),
-                ("HoverOver", 1 << 37),
-            ];
-
-            if let Some(td) = &mut self.tiledata {
-                let flags_ptr = if self.tiledata_is_items {
-                    td.item_tiles
-                        .get_mut(self.tiledata_selected)
-                        .map(|t| &mut t.flags)
-                } else {
-                    td.land_tiles
-                        .get_mut(self.tiledata_selected)
-                        .map(|t| &mut t.flags)
-                };
-
-                if let Some(flags) = flags_ptr {
-                    egui::Grid::new("tileflags_grid")
-                        .num_columns(4)
-                        .spacing([18.0, 4.0])
-                        .show(ui, |ui| {
-                            for (i, (name, mask)) in all_flags.iter().enumerate() {
-                                let mut checked = (*flags & mask) != 0;
-                                if ui.checkbox(&mut checked, *name).changed() {
-                                    if checked {
-                                        *flags |= mask;
-                                    } else {
-                                        *flags &= !mask;
-                                    }
-                                }
-                                if (i + 1) % 4 == 0 {
-                                    ui.end_row();
-                                }
-                            }
-                        });
-                }
-            }
-
-            ui.add_space(12.0);
-            ui.horizontal(|ui| {
-                if ui.button("💾 Aplicar Modificações").clicked() {
-                    self.status_message = format!(
-                        "Modificações aplicadas ao TileData 0x{:04X}.",
-                        self.tiledata_selected
-                    );
-                }
-            });
-        });
-    }
-
-    // 4. GUMPS TAB (Full Mythic UOP / MUL Decoding & 1:1 Image Canvas)
+    // 3. GUMPS TAB (Full Mythic UOP / MUL Decoding & 1:1 Image Canvas)
     fn render_gumps_tab(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         egui::SidePanel::left("gumps_left_panel")
             .resizable(true)
