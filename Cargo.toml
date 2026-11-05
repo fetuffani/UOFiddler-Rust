@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/uo_core",
+    "crates/uo_gui",
+]
+resolver = "2"

@@ -1,0 +1,17 @@
+# Rust target build output
+/target/
+
+# Local backup / temporary files
+*.rs.bk
+*.swp
+*.bak
+*~
+
+# Exported runtime artifacts
+exported_gamedata/
+export_*.csv
+
+# Python caches (cleanup)
+__pycache__/
+*.pyc
+.pytest_cache/

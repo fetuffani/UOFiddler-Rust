@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Launcher script for UOFiddlerPy
+# High-Performance Launcher for UOFiddler (100% Rust)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
+BIN_PATH="${SCRIPT_DIR}/target/release/uo_gui"
 
-exec python3 "${SCRIPT_DIR}/main.py" "$@"
+if [ ! -f "${BIN_PATH}" ]; then
+    echo "Compilando UOFiddler em modo Release..."
+    cargo build --release -p uo_gui
+fi
+
+exec "${BIN_PATH}" "$@"
