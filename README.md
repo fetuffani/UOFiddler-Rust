@@ -2,7 +2,7 @@
 
 > 🌐 **Language / Idioma**: **English** | [Português (README_pt-br.md)](README_pt-br.md)  
 > 👤 **Author**: Mauricio Nunes + DeepSeek & Gemini  
-> 🔗 **GitHub**: [https://github.com/mbnunes/UOFiddlerPy](https://github.com/mbnunes/UOFiddlerPy)
+> 🔗 **GitHub**: [https://github.com/mbnunes/UOFiddler-Rust](https://github.com/mbnunes/UOFiddler-Rust)
 
 **UOFiddler** is a complete, modern, high-performance **100% native Rust** reimplementation of the classic **UOFiddler** for Ultima Online. Built on **egui / eframe**, it runs smoothly, stably, and elegantly on **Linux, Windows, and macOS**, completely eliminating dependencies on the **.NET runtime**, **Mono**, **Wine**, or **Python**.
 
@@ -56,8 +56,8 @@ Traditional UOFiddler on Linux via Wine or Mono is prone to graphical glitches, 
 ### Building and Running
 ```bash
 # Clone the repository
-git clone https://github.com/mbnunes/UOFiddlerPy.git
-cd UOFiddlerPy
+git clone https://github.com/mbnunes/UOFiddler-Rust.git
+cd UOFiddler-Rust
 
 # Run directly using the launch script
 ./run.sh
@@ -76,7 +76,7 @@ cargo test --workspace
 ## 🏗️ Architecture
 
 ```
-UOFiddlerPy/
+UOFiddler-Rust/
 ├── Cargo.toml                  # Workspace manifest
 ├── crates/
 │   ├── uo_core/                # High-performance UO format decoders (100% safe Rust)
