@@ -1,8 +1,8 @@
-# UOFiddler 🗡️
+# UOFiddler-Rust 🗡️
 
 > 🌐 **Language / Idioma**: [English (README.md)](README.md) | **Português**  
 > 👤 **Autor**: Mauricio Nunes + DeepSeek & Gemini  
-> 🔗 **GitHub**: [https://github.com/mbnunes/UOFiddlerPy](https://github.com/mbnunes/UOFiddlerPy)
+> 🔗 **GitHub**: [https://github.com/mbnunes/UOFiddler-Rust](https://github.com/mbnunes/UOFiddler-Rust)
 
 **UOFiddler** é uma reimplementação moderna, ultrarrápida e **100% nativa em Rust** do clássico **UOFiddler** para Ultima Online. Desenvolvido com **egui / eframe**, ele executa de forma estável, fluida e elegante no **Linux, Windows e macOS**, eliminando integralmente qualquer dependência de **.NET runtime**, **Mono**, **Wine** ou **Python**.
 
@@ -10,7 +10,7 @@
 
 ## ⚡ Destaques e Diferenciais do UOFiddler
 
-A execução do UOFiddler original em C# via Wine ou Mono no Linux causa frequentes falhas de renderização, travamentos e problemas de case-sensitivity no sistema de arquivos. O **UOFiddler** soluciona tudo de forma definitiva:
+A execução do UOFiddler-Rust original em C# via Wine ou Mono no Linux causa frequentes falhas de renderização, travamentos e problemas de case-sensitivity no sistema de arquivos. O **UOFiddler** soluciona tudo de forma definitiva:
 
 1. **100% Rust Nativo**: Zero dependências de runtime. Inicialização instantânea (< 50 ms) e consumo mínimo de memória RAM.
 2. **Dual-Client Engine (Clássico & Enhanced UOP)**: Alternância em tempo real entre o cliente **Clássico 2D** (`.mul`/`.idx`) e o **Enhanced Client 3D** (`.uop` Mythic MYP v5 / texturas DDS nativas).
@@ -56,8 +56,8 @@ A execução do UOFiddler original em C# via Wine ou Mono no Linux causa frequen
 ### Compilando e Executando
 ```bash
 # Clone o repositório
-git clone https://github.com/mbnunes/UOFiddlerPy.git
-cd UOFiddlerPy
+git clone https://github.com/mbnunes/UOFiddler-Rust.git
+cd UOFiddler-Rust
 
 # Execute diretamente através do script inicializador
 ./run.sh
@@ -76,7 +76,7 @@ cargo test --workspace
 ## 🏗️ Estrutura do Projeto
 
 ```
-UOFiddlerPy/
+UOFiddler-Rust/
 ├── Cargo.toml                  # Manifesto do workspace Rust
 ├── crates/
 │   ├── uo_core/                # Decodificadores de alta performance (100% Rust Seguro)
