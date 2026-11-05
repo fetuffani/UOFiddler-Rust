@@ -137,6 +137,7 @@ impl FileManager {
     pub fn load_settings(&mut self) {
         let home = std::env::var("HOME").unwrap_or_default();
         let paths = [
+            PathBuf::from(&home).join(".config/uofiddler/settings.json"),
             PathBuf::from(&home).join(".config/uofiddler_rs/settings.json"),
             PathBuf::from(&home).join(".config/uofiddler_py/settings.json"),
         ];
@@ -169,7 +170,7 @@ impl FileManager {
 
     pub fn save_settings(&self) {
         let home = std::env::var("HOME").unwrap_or_default();
-        let cfg_dir = PathBuf::from(&home).join(".config/uofiddler_rs");
+        let cfg_dir = PathBuf::from(&home).join(".config/uofiddler");
         let _ = fs::create_dir_all(&cfg_dir);
         let cfg_file = cfg_dir.join("settings.json");
 
