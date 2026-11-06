@@ -146,6 +146,19 @@ impl GumpStudioTab {
         self.undo.push(self.doc.clone());
     }
 
+    fn delete_selected(&mut self) {
+        let mut to_remove = self.multi.clone();
+        if let Some(s) = self.selected {
+            to_remove.push(s);
+        }
+        if to_remove.iter().any(|&i| i < self.doc.elements.len()) {
+            self.push_undo();
+            self.doc.remove_elements(&to_remove);
+            self.selected = None;
+            self.multi.clear();
+        }
+    }
+
     // ------------------------------------------------------------- textures
 
     fn hue_pal(d: &GumpStudioData, hue: u32) -> Option<[u32; 32]> {
@@ -331,6 +344,8 @@ impl GumpStudioTab {
         egui::CentralPanel::default().show_inside(ui, |ui| self.canvas(ui, ctx, d));
         if self.resizepic_open {
             self.resizepic_window(ctx, d);
+        } else if !ctx.wants_keyboard_input() && ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
+            self.delete_selected();
         }
     }
 
@@ -587,8 +602,9 @@ impl GumpStudioTab {
                     self.selected = Some(i + 1);
                 }
                 3 => {
-                    self.doc.elements.remove(i);
+                    self.doc.remove_elements(&[i]);
                     self.selected = None;
+                    self.multi.clear();
                 }
                 _ => {}
             }
