@@ -12,10 +12,33 @@ pub struct GumpStudioData<'a> {
     pub ascii_fonts: Option<&'a FontsManager>,
     pub gump_index: Option<&'a FileIndex>,
     pub art: Option<&'a FileIndex>,
+    pub tiledata: Option<&'a TileDataManager>,
     pub hues: Option<&'a HuesManager>,
     pub cliloc: Option<&'a ClilocManager>,
     /// language of the loaded cliloc (cache key)
     pub cliloc_lang: &'a str,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PickerMode {
+    Resizepic,
+    ImageGump,
+    TiledGump,
+    ItemArt,
+    ButtonPair,
+    ButtonNormal,
+    ButtonPressed,
+    CheckboxPair,
+    RadioPair,
+    SwitchOff,
+    SwitchOn,
+}
+
+#[derive(Clone, Copy)]
+enum PreviewKind {
+    Resizepic(u32),
+    Gump(u32),
+    Item(u32),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -61,7 +84,7 @@ pub struct GumpStudioTab {
     uni_fonts: HashMap<u8, Option<UnicodeFont>>,
     html_tex: HashMap<(i32, String), Option<egui::TextureHandle>>,
     html_color: [u8; 3],
-    resizepic_open: bool,
+    picker_mode: Option<PickerMode>,
     multi: Vec<usize>,
     favorites: Favorites,
     fav_name: String,
@@ -69,6 +92,16 @@ pub struct GumpStudioTab {
     resizepic_list: Vec<u32>,
     resizepic_scan_pos: u32,
     resizepic_lists: Option<ResizepicLists>,
+    gump_list: Vec<u32>,
+    gump_scan_pos: u32,
+    tiled_list: Vec<u32>,
+    tiled_scan_pos: u32,
+    item_list: Vec<u32>,
+    item_scan_pos: u32,
+    button_list: Vec<(u32, u32)>,
+    button_scan_pos: u32,
+    switch_list: Vec<(u32, u32)>,
+    switch_scan_pos: u32,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
@@ -91,7 +124,7 @@ impl Default for GumpStudioTab {
             uni_fonts: HashMap::new(),
             html_tex: HashMap::new(),
             html_color: [255, 80, 80],
-            resizepic_open: false,
+            picker_mode: None,
             multi: Vec::new(),
             favorites: Self::load_favorites(),
             fav_name: String::new(),
@@ -99,6 +132,16 @@ impl Default for GumpStudioTab {
             resizepic_list: Vec::new(),
             resizepic_scan_pos: 0,
             resizepic_lists: None,
+            gump_list: Vec::new(),
+            gump_scan_pos: 0,
+            tiled_list: Vec::new(),
+            tiled_scan_pos: 0,
+            item_list: Vec::new(),
+            item_scan_pos: 0,
+            button_list: Vec::new(),
+            button_scan_pos: 0,
+            switch_list: Vec::new(),
+            switch_scan_pos: 0,
             text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
@@ -346,8 +389,8 @@ impl GumpStudioTab {
         egui::SidePanel::left("gs_left").resizable(true).default_width(250.0).show_inside(ui, |ui| self.element_list(ui));
         egui::SidePanel::right("gs_right").resizable(true).default_width(360.0).show_inside(ui, |ui| self.properties(ui, ctx, d));
         egui::CentralPanel::default().show_inside(ui, |ui| self.canvas(ui, ctx, d));
-        if self.resizepic_open {
-            self.resizepic_window(ctx, d);
+        if let Some(mode) = self.picker_mode {
+            self.picker_window(ctx, d, mode);
         } else if !ctx.wants_keyboard_input() && ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
             self.delete_selected();
         }
@@ -622,6 +665,18 @@ impl GumpStudioTab {
         });
     }
 
+    fn gump_field_browse(ui: &mut egui::Ui, label: &str, v: &mut u32) -> bool {
+        let mut clicked = false;
+        ui.horizontal(|ui| {
+            ui.label(label);
+            ui.add(egui::DragValue::new(v).range(0..=65535));
+            if ui.small_button(t!("gs.picker.browse")).clicked() {
+                clicked = true;
+            }
+        });
+        clicked
+    }
+
     fn properties(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, d: &GumpStudioData) {
         ui.heading("Propriedades");
         let Some(i) = self.selected.filter(|&i| i < self.doc.elements.len()) else {
@@ -629,7 +684,7 @@ impl GumpStudioTab {
             return;
         };
         let before = self.doc.elements[i].clone();
-        let mut preview: Option<(u32, bool)> = None; // (gump id, resizepic?)
+        let mut preview: Option<PreviewKind> = None;
         {
             let e = &mut self.doc.elements[i];
             ui.label(e.kind.label());
@@ -683,22 +738,32 @@ impl GumpStudioTab {
                 ElementKind::Background { gump_id } => {
                     Self::gump_field(ui, "Gump (resizepic):", gump_id);
                     if ui.button(t!("gs.resizepic.browse")).clicked() {
-                        self.resizepic_open = true;
+                        self.picker_mode = Some(PickerMode::Resizepic);
                     }
-                    preview = Some((*gump_id, true));
+                    preview = Some(PreviewKind::Resizepic(*gump_id));
                 }
                 ElementKind::Image { gump_id, hue } => {
                     Self::gump_field(ui, "Gump:", gump_id);
+                    if ui.button(t!("gs.picker.browse_gump")).clicked() {
+                        self.picker_mode = Some(PickerMode::ImageGump);
+                    }
                     Self::gump_field(ui, "Hue:", hue);
-                    preview = Some((*gump_id, false));
+                    preview = Some(PreviewKind::Gump(*gump_id));
                 }
                 ElementKind::Tiled { gump_id } => {
                     Self::gump_field(ui, "Gump:", gump_id);
-                    preview = Some((*gump_id, false));
+                    if ui.button(t!("gs.picker.browse_tiled")).clicked() {
+                        self.picker_mode = Some(PickerMode::TiledGump);
+                    }
+                    preview = Some(PreviewKind::Gump(*gump_id));
                 }
                 ElementKind::Item { item_id, hue } => {
                     Self::gump_field(ui, "Item id:", item_id);
+                    if ui.button(t!("gs.picker.browse_item")).clicked() {
+                        self.picker_mode = Some(PickerMode::ItemArt);
+                    }
                     Self::gump_field(ui, "Hue:", hue);
+                    preview = Some(PreviewKind::Item(*item_id));
                 }
                 ElementKind::Label { text, hue, font, ascii } => {
                     ui.label("Texto:");
@@ -803,8 +868,15 @@ impl GumpStudioTab {
                     ui.checkbox(scrollbar, "barra de rolagem");
                 }
                 ElementKind::Button { normal, pressed, action, page, id } => {
-                    Self::gump_field(ui, "Gump normal:", normal);
-                    Self::gump_field(ui, "Gump pressionado:", pressed);
+                    if Self::gump_field_browse(ui, "Gump normal:", normal) {
+                        self.picker_mode = Some(PickerMode::ButtonNormal);
+                    }
+                    if Self::gump_field_browse(ui, "Gump pressionado:", pressed) {
+                        self.picker_mode = Some(PickerMode::ButtonPressed);
+                    }
+                    if ui.button(t!("gs.picker.browse_button")).clicked() {
+                        self.picker_mode = Some(PickerMode::ButtonPair);
+                    }
                     ui.horizontal(|ui| {
                         ui.label("Ação:");
                         ui.selectable_value(action, ButtonAction::Reply, "Resposta");
@@ -818,16 +890,39 @@ impl GumpStudioTab {
                             *id = v as i32;
                         }
                     }
-                    preview = Some((*normal, false));
+                    preview = Some(PreviewKind::Gump(*normal));
                 }
-                ElementKind::Checkbox { off, on, checked, id } | ElementKind::Radio { off, on, checked, id } => {
-                    Self::gump_field(ui, "Gump desmarcado:", off);
-                    Self::gump_field(ui, "Gump marcado:", on);
+                ElementKind::Checkbox { off, on, checked, id } => {
+                    if Self::gump_field_browse(ui, "Gump desmarcado:", off) {
+                        self.picker_mode = Some(PickerMode::SwitchOff);
+                    }
+                    if Self::gump_field_browse(ui, "Gump marcado:", on) {
+                        self.picker_mode = Some(PickerMode::SwitchOn);
+                    }
+                    if ui.button(t!("gs.picker.browse_checkbox")).clicked() {
+                        self.picker_mode = Some(PickerMode::CheckboxPair);
+                    }
                     ui.checkbox(checked, "marcado inicialmente");
                     let mut v = *id as u32;
                     Self::gump_field(ui, "Id (0 = automático):", &mut v);
                     *id = v as i32;
-                    preview = Some((if *checked { *on } else { *off }, false));
+                    preview = Some(PreviewKind::Gump(if *checked { *on } else { *off }));
+                }
+                ElementKind::Radio { off, on, checked, id } => {
+                    if Self::gump_field_browse(ui, "Gump desmarcado:", off) {
+                        self.picker_mode = Some(PickerMode::SwitchOff);
+                    }
+                    if Self::gump_field_browse(ui, "Gump marcado:", on) {
+                        self.picker_mode = Some(PickerMode::SwitchOn);
+                    }
+                    if ui.button(t!("gs.picker.browse_radio")).clicked() {
+                        self.picker_mode = Some(PickerMode::RadioPair);
+                    }
+                    ui.checkbox(checked, "marcado inicialmente");
+                    let mut v = *id as u32;
+                    Self::gump_field(ui, "Id (0 = automático):", &mut v);
+                    *id = v as i32;
+                    preview = Some(PreviewKind::Gump(if *checked { *on } else { *off }));
                 }
                 ElementKind::TextEntry { hue, text, id } => {
                     Self::gump_field(ui, "Hue:", hue);
@@ -855,10 +950,14 @@ impl GumpStudioTab {
                 self.undo.push(snapshot);
             }
         }
-        if let Some((id, resize)) = preview {
+        if let Some(pk) = preview {
             ui.separator();
             ui.label("Pré-visualização:");
-            let t = if resize { self.resize_tex(ctx, d, id, 96, 72) } else { self.gump_tex(ctx, d, id, 0) };
+            let t = match pk {
+                PreviewKind::Resizepic(id) => self.resize_tex(ctx, d, id, 96, 72),
+                PreviewKind::Gump(id) => self.gump_tex(ctx, d, id, 0),
+                PreviewKind::Item(id) => self.item_tex(ctx, d, id, 0),
+            };
             match t {
                 Some(t) => {
                     let sz = t.size_vec2();
@@ -880,104 +979,390 @@ impl GumpStudioTab {
         ResizepicLists::builtin().merged(extra)
     }
 
-    /// Browser of the resizepic frames found in the client gumps; clicking one sets it on the selected background.
-    fn resizepic_window(&mut self, ctx: &egui::Context, d: &GumpStudioData) {
-        const MAX_GUMP_ID: u32 = 0xFFFF;
+    fn step_picker_scan(&mut self, ctx: &egui::Context, d: &GumpStudioData, mode: PickerMode) -> (bool, u32, usize) {
+        const MAX_ID: u32 = 0xFFFF;
         if self.resizepic_lists.is_none() {
             self.resizepic_lists = Some(Self::resizepic_lists());
         }
         let lists = self.resizepic_lists.clone().unwrap_or_default();
-        if let Some(gi) = d.gump_index {
-            let start = std::time::Instant::now();
-            let mut steps = 0u32;
-            while self.resizepic_scan_pos + 8 <= MAX_GUMP_ID {
-                let id = self.resizepic_scan_pos;
-                if let Some(r) = lists.invalid_range(id) {
-                    self.resizepic_scan_pos = *r.end() + 1; // skip the whole curated range
-                    continue;
-                }
-                let found = is_resizepic_at(
-                    id,
-                    &lists,
-                    |k| gi.gump_size(k as usize),
-                    |k| {
-                        let parts: Vec<GumpBitmap> = (0..9).filter_map(|p| decode_gump_id(gi, k + p)).collect();
-                        frame_tiles_seamlessly(&parts)
-                    },
-                );
-                if found {
-                    self.resizepic_list.push(id);
-                    self.resizepic_scan_pos += 9;
+        let start = std::time::Instant::now();
+        let mut steps = 0u32;
+        match mode {
+            PickerMode::Resizepic => {
+                if let Some(gi) = d.gump_index {
+                    while self.resizepic_scan_pos + 8 <= MAX_ID {
+                        let id = self.resizepic_scan_pos;
+                        if let Some(r) = lists.invalid_range(id) {
+                            self.resizepic_scan_pos = *r.end() + 1; // skip the whole curated range
+                            continue;
+                        }
+                        let found = is_resizepic_at(
+                            id,
+                            &lists,
+                            |k| gi.gump_size(k as usize),
+                            |k| {
+                                let parts: Vec<GumpBitmap> = (0..9).filter_map(|p| decode_gump_id(gi, k + p)).collect();
+                                frame_tiles_seamlessly(&parts)
+                            },
+                        );
+                        if found {
+                            self.resizepic_list.push(id);
+                            self.resizepic_scan_pos += 9;
+                        } else {
+                            self.resizepic_scan_pos += 1;
+                        }
+                        steps += 1;
+                        if steps >= 512 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                            break;
+                        }
+                    }
                 } else {
-                    self.resizepic_scan_pos += 1;
+                    self.resizepic_scan_pos = MAX_ID;
                 }
-                steps += 1;
-                if steps >= 512 && start.elapsed() >= std::time::Duration::from_millis(8) {
-                    break;
+                let scanning = self.resizepic_scan_pos + 8 <= MAX_ID;
+                if scanning {
+                    ctx.request_repaint();
                 }
+                (scanning, self.resizepic_scan_pos, self.resizepic_list.len())
             }
-            if self.resizepic_scan_pos + 8 <= MAX_GUMP_ID {
-                ctx.request_repaint();
+            PickerMode::ImageGump | PickerMode::ButtonNormal | PickerMode::ButtonPressed | PickerMode::SwitchOff | PickerMode::SwitchOn => {
+                if let Some(gi) = d.gump_index {
+                    while self.gump_scan_pos <= MAX_ID {
+                        let id = self.gump_scan_pos;
+                        if gi.is_valid(id as usize) {
+                            self.gump_list.push(id);
+                        }
+                        self.gump_scan_pos += 1;
+                        steps += 1;
+                        if steps >= 4096 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                            break;
+                        }
+                    }
+                } else {
+                    self.gump_scan_pos = MAX_ID + 1;
+                }
+                let scanning = self.gump_scan_pos <= MAX_ID;
+                if scanning {
+                    ctx.request_repaint();
+                }
+                (scanning, self.gump_scan_pos, self.gump_list.len())
             }
-        } else {
-            self.resizepic_scan_pos = MAX_GUMP_ID;
+            PickerMode::TiledGump => {
+                if let Some(gi) = d.gump_index {
+                    while self.tiled_scan_pos <= MAX_ID {
+                        let id = self.tiled_scan_pos;
+                        if is_tiled_gump_at(id, |k| gi.gump_size(k as usize)) {
+                            self.tiled_list.push(id);
+                        }
+                        self.tiled_scan_pos += 1;
+                        steps += 1;
+                        if steps >= 1024 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                            break;
+                        }
+                    }
+                } else {
+                    self.tiled_scan_pos = MAX_ID + 1;
+                }
+                let scanning = self.tiled_scan_pos <= MAX_ID;
+                if scanning {
+                    ctx.request_repaint();
+                }
+                (scanning, self.tiled_scan_pos, self.tiled_list.len())
+            }
+            PickerMode::ItemArt => {
+                if let Some(art) = d.art {
+                    while self.item_scan_pos <= MAX_ID {
+                        let id = self.item_scan_pos;
+                        if art.is_valid(0x4000 + id as usize) {
+                            self.item_list.push(id);
+                        }
+                        self.item_scan_pos += 1;
+                        steps += 1;
+                        if steps >= 4096 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                            break;
+                        }
+                    }
+                } else {
+                    self.item_scan_pos = MAX_ID + 1;
+                }
+                let scanning = self.item_scan_pos <= MAX_ID;
+                if scanning {
+                    ctx.request_repaint();
+                }
+                (scanning, self.item_scan_pos, self.item_list.len())
+            }
+            PickerMode::ButtonPair => {
+                if let Some(gi) = d.gump_index {
+                    while self.button_scan_pos + 2 <= MAX_ID {
+                        let id = self.button_scan_pos;
+                        if let Some((a, b, step)) = button_pair_at(id, |k| gi.gump_size(k as usize)) {
+                            self.button_list.push((a, b));
+                            self.button_scan_pos += step;
+                        } else {
+                            self.button_scan_pos += 1;
+                        }
+                        steps += 1;
+                        if steps >= 1024 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                            break;
+                        }
+                    }
+                } else {
+                    self.button_scan_pos = MAX_ID;
+                }
+                let scanning = self.button_scan_pos + 2 <= MAX_ID;
+                if scanning {
+                    ctx.request_repaint();
+                }
+                (scanning, self.button_scan_pos, self.button_list.len())
+            }
+            PickerMode::CheckboxPair | PickerMode::RadioPair => {
+                if let Some(gi) = d.gump_index {
+                    while self.switch_scan_pos + 1 <= MAX_ID {
+                        let id = self.switch_scan_pos;
+                        if let Some((a, b, step)) = switch_pair_at(id, |k| gi.gump_size(k as usize)) {
+                            self.switch_list.push((a, b));
+                            self.switch_scan_pos += step;
+                        } else {
+                            self.switch_scan_pos += 1;
+                        }
+                        steps += 1;
+                        if steps >= 1024 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                            break;
+                        }
+                    }
+                } else {
+                    self.switch_scan_pos = MAX_ID;
+                }
+                let scanning = self.switch_scan_pos + 1 <= MAX_ID;
+                if scanning {
+                    ctx.request_repaint();
+                }
+                (scanning, self.switch_scan_pos, self.switch_list.len())
+            }
         }
-        let scanning = self.resizepic_scan_pos + 8 <= MAX_GUMP_ID;
-        let count = self.resizepic_list.len();
+    }
+
+    fn item_name<'a>(d: &GumpStudioData<'a>, id: u32) -> &'a str {
+        d.tiledata
+            .and_then(|td| td.item_tiles.get(id as usize))
+            .map(|t| t.name.as_str())
+            .unwrap_or("")
+    }
+
+    fn matches_query(id: u32, name: &str, q: &str) -> bool {
+        if q.is_empty() {
+            return true;
+        }
+        let hex = format!("0x{:x}", id);
+        let hex4 = format!("0x{:04x}", id);
+        id.to_string().contains(q)
+            || hex.contains(q)
+            || hex4.contains(q)
+            || (!name.is_empty() && name.to_lowercase().contains(q))
+    }
+
+    /// Visual browser modal for Background (resizepic), Image, Tiled, Item, Button, Checkbox and Radio.
+    fn picker_window(&mut self, ctx: &egui::Context, d: &GumpStudioData, mode: PickerMode) {
+        const MAX_ID: u32 = 0xFFFF;
+        let (scanning, pos, count) = self.step_picker_scan(ctx, d, mode);
+        let title = match mode {
+            PickerMode::Resizepic => t!("gs.resizepic.title"),
+            PickerMode::ImageGump | PickerMode::ButtonNormal | PickerMode::ButtonPressed | PickerMode::SwitchOff | PickerMode::SwitchOn => t!("gs.picker.gump.title"),
+            PickerMode::TiledGump => t!("gs.picker.tiled.title"),
+            PickerMode::ItemArt => t!("gs.picker.item.title"),
+            PickerMode::ButtonPair => t!("gs.picker.button.title"),
+            PickerMode::CheckboxPair => t!("gs.picker.check.title"),
+            PickerMode::RadioPair => t!("gs.picker.radio.title"),
+        };
+        let tip = match mode {
+            PickerMode::Resizepic => t!("gs.resizepic.tip"),
+            PickerMode::ImageGump | PickerMode::ButtonNormal | PickerMode::ButtonPressed | PickerMode::SwitchOff | PickerMode::SwitchOn => t!("gs.picker.gump.tip"),
+            PickerMode::TiledGump => t!("gs.picker.tiled.tip"),
+            PickerMode::ItemArt => t!("gs.picker.item.tip"),
+            PickerMode::ButtonPair => t!("gs.picker.button.tip"),
+            PickerMode::CheckboxPair | PickerMode::RadioPair => t!("gs.picker.switch.tip"),
+        };
+        let search_label = if mode == PickerMode::ItemArt {
+            t!("gs.picker.search_item")
+        } else {
+            t!("gs.resizepic.search")
+        };
         let mut open = true;
-        let mut pick: Option<u32> = None;
-        egui::Window::new(t!("gs.resizepic.title")).open(&mut open).fixed_size([560.0, 420.0]).show(ctx, |ui| {
+        let mut pick_single: Option<u32> = None;
+        let mut pick_pair: Option<(u32, u32)> = None;
+        egui::Window::new(title).open(&mut open).fixed_size([580.0, 440.0]).show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label(t!("gs.resizepic.search"));
+                ui.label(search_label);
                 ui.text_edit_singleline(&mut self.resizepic_search);
             });
             if scanning {
-                let frac = (self.resizepic_scan_pos as f32 / (MAX_GUMP_ID - 8) as f32).clamp(0.0, 1.0);
+                let frac = (pos as f32 / MAX_ID as f32).clamp(0.0, 1.0);
                 let pct = (frac * 100.0).round() as u32;
                 ui.horizontal(|ui| {
                     ui.spinner();
                     ui.add(egui::ProgressBar::new(frac).text(t!("gs.resizepic.loading", pct = pct, n = count)));
                 });
-            } else {
+            } else if mode == PickerMode::Resizepic {
                 ui.label(t!("gs.resizepic.count", n = count));
+            } else {
+                ui.label(t!("gs.picker.count", n = count));
             }
-            ui.label(t!("gs.resizepic.tip"));
-            ui.label(t!("gs.resizepic.manual"));
+            ui.label(tip);
+            if mode == PickerMode::Resizepic {
+                ui.label(t!("gs.resizepic.manual"));
+            }
             ui.separator();
-            let q = self.resizepic_search.trim().to_string();
-            let shown: Vec<u32> = self.resizepic_list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
-            let cols = 5usize;
-            let num_rows = (shown.len() + cols - 1) / cols;
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(ui, 96.0, num_rows, |ui, row_range| {
-                egui::Grid::new("gs_resizepic_grid").spacing([8.0, 8.0]).show(ui, |ui| {
-                    for row in row_range {
-                        let start_idx = row * cols;
-                        let end_idx = (start_idx + cols).min(shown.len());
-                        for &id in &shown[start_idx..end_idx] {
-                            ui.vertical(|ui| {
-                                if let Some(t) = self.resize_tex(ctx, d, id, 96, 72) {
-                                    if ui.add(egui::ImageButton::new((t.id(), t.size_vec2()))).clicked() {
-                                        pick = Some(id);
-                                    }
+            let q = self.resizepic_search.trim().to_lowercase();
+            match mode {
+                PickerMode::ButtonPair | PickerMode::CheckboxPair | PickerMode::RadioPair => {
+                    let src = if mode == PickerMode::ButtonPair { &self.button_list } else { &self.switch_list };
+                    let shown: Vec<(u32, u32)> = src
+                        .iter()
+                        .copied()
+                        .filter(|&(a, b)| Self::matches_query(a, "", &q) || Self::matches_query(b, "", &q))
+                        .collect();
+                    let cols = 4usize;
+                    let num_rows = (shown.len() + cols - 1) / cols;
+                    egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(ui, 84.0, num_rows, |ui, row_range| {
+                        egui::Grid::new("gs_picker_pairs_grid").spacing([10.0, 8.0]).show(ui, |ui| {
+                            for row in row_range {
+                                let start_idx = row * cols;
+                                let end_idx = (start_idx + cols).min(shown.len());
+                                for &(a, b) in &shown[start_idx..end_idx] {
+                                    ui.vertical(|ui| {
+                                        let ta = self.gump_tex(ctx, d, a, 0);
+                                        let tb = self.gump_tex(ctx, d, b, 0);
+                                        ui.horizontal(|ui| {
+                                            for t in [ta, tb].into_iter().flatten() {
+                                                let sz = t.size_vec2();
+                                                let k = (56.0 / sz.x).min(56.0 / sz.y).min(1.0);
+                                                if ui.add(egui::ImageButton::new((t.id(), sz * k))).clicked() {
+                                                    pick_pair = Some((a, b));
+                                                }
+                                            }
+                                        });
+                                        let lbl = format!("{a} → {b}");
+                                        if ui.small_button(lbl).clicked() {
+                                            pick_pair = Some((a, b));
+                                        }
+                                    });
                                 }
-                                ui.small(id.to_string());
-                            });
-                        }
-                        ui.end_row();
-                    }
-                });
-            });
+                                ui.end_row();
+                            }
+                        });
+                    });
+                }
+                _ => {
+                    let src = match mode {
+                        PickerMode::Resizepic => &self.resizepic_list,
+                        PickerMode::TiledGump => &self.tiled_list,
+                        PickerMode::ItemArt => &self.item_list,
+                        _ => &self.gump_list,
+                    };
+                    let shown: Vec<u32> = src
+                        .iter()
+                        .copied()
+                        .filter(|&id| {
+                            let name = if mode == PickerMode::ItemArt { Self::item_name(d, id) } else { "" };
+                            Self::matches_query(id, name, &q)
+                        })
+                        .collect();
+                    let cols = 5usize;
+                    let num_rows = (shown.len() + cols - 1) / cols;
+                    egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(ui, 96.0, num_rows, |ui, row_range| {
+                        egui::Grid::new("gs_picker_single_grid").spacing([8.0, 8.0]).show(ui, |ui| {
+                            for row in row_range {
+                                let start_idx = row * cols;
+                                let end_idx = (start_idx + cols).min(shown.len());
+                                for &id in &shown[start_idx..end_idx] {
+                                    ui.vertical(|ui| {
+                                        let tex = match mode {
+                                            PickerMode::Resizepic => self.resize_tex(ctx, d, id, 96, 72),
+                                            PickerMode::TiledGump => self.tiled_tex(ctx, d, id, 96, 72),
+                                            PickerMode::ItemArt => self.item_tex(ctx, d, id, 0),
+                                            _ => self.gump_tex(ctx, d, id, 0),
+                                        };
+                                        if let Some(t) = tex {
+                                            let sz = t.size_vec2();
+                                            let k = (96.0 / sz.x).min(72.0 / sz.y).min(1.0);
+                                            if ui.add(egui::ImageButton::new((t.id(), sz * k))).clicked() {
+                                                pick_single = Some(id);
+                                            }
+                                        }
+                                        let caption = if mode == PickerMode::ItemArt {
+                                            let nm = Self::item_name(d, id);
+                                            if nm.is_empty() {
+                                                format!("0x{:04X} ({})", id, id)
+                                            } else {
+                                                format!("0x{:04X} {}", id, nm)
+                                            }
+                                        } else {
+                                            id.to_string()
+                                        };
+                                        ui.small(caption);
+                                    });
+                                }
+                                ui.end_row();
+                            }
+                        });
+                    });
+                }
+            }
         });
         if !open {
-            self.resizepic_open = false;
+            self.picker_mode = None;
         }
-        if let (Some(id), Some(i)) = (pick, self.selected) {
-            if let Some(ElementKind::Background { gump_id }) = self.doc.elements.get(i).map(|e| e.kind.clone()) {
-                if gump_id != id {
-                    self.push_undo();
-                    if let Some(ElementKind::Background { gump_id }) = self.doc.elements.get_mut(i).map(|e| &mut e.kind) {
-                        *gump_id = id;
+        if let Some(i) = self.selected.filter(|&i| i < self.doc.elements.len()) {
+            if let Some(id) = pick_single {
+                let before = self.doc.elements[i].clone();
+                if let Some(el) = self.doc.elements.get_mut(i) {
+                    match (&mut el.kind, mode) {
+                        (ElementKind::Background { gump_id }, PickerMode::Resizepic) => *gump_id = id,
+                        (ElementKind::Image { gump_id, .. }, PickerMode::ImageGump) => *gump_id = id,
+                        (ElementKind::Tiled { gump_id }, PickerMode::TiledGump) => *gump_id = id,
+                        (ElementKind::Item { item_id, .. }, PickerMode::ItemArt) => *item_id = id,
+                        (ElementKind::Button { normal, .. }, PickerMode::ButtonNormal) => *normal = id,
+                        (ElementKind::Button { pressed, .. }, PickerMode::ButtonPressed) => *pressed = id,
+                        (ElementKind::Checkbox { off, .. } | ElementKind::Radio { off, .. }, PickerMode::SwitchOff) => *off = id,
+                        (ElementKind::Checkbox { on, .. } | ElementKind::Radio { on, .. }, PickerMode::SwitchOn) => *on = id,
+                        _ => {}
                     }
+                }
+                if self.doc.elements[i] != before {
+                    let mut snap = self.doc.clone();
+                    snap.elements[i] = before;
+                    if self.undo.len() >= 60 {
+                        self.undo.remove(0);
+                    }
+                    self.undo.push(snap);
+                }
+            }
+            if let Some((a, b)) = pick_pair {
+                let before = self.doc.elements[i].clone();
+                if let Some(el) = self.doc.elements.get_mut(i) {
+                    match (&mut el.kind, mode) {
+                        (ElementKind::Button { normal, pressed, .. }, PickerMode::ButtonPair) => {
+                            *normal = a;
+                            *pressed = b;
+                        }
+                        (ElementKind::Checkbox { off, on, .. }, PickerMode::CheckboxPair) => {
+                            *off = a;
+                            *on = b;
+                        }
+                        (ElementKind::Radio { off, on, .. }, PickerMode::RadioPair) => {
+                            *off = a;
+                            *on = b;
+                        }
+                        _ => {}
+                    }
+                }
+                if self.doc.elements[i] != before {
+                    let mut snap = self.doc.clone();
+                    snap.elements[i] = before;
+                    if self.undo.len() >= 60 {
+                        self.undo.remove(0);
+                    }
+                    self.undo.push(snap);
                 }
             }
         }

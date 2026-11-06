@@ -672,6 +672,50 @@ pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>,
     out
 }
 
+/// True when `id` has tile-like dimensions suitable for a `gumppictiled` element (`8..=256` px).
+pub fn is_tiled_gump_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> bool {
+    if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+        return false;
+    }
+    size_of(id).map_or(false, |(w, h)| (8..=256).contains(&w) && (8..=256).contains(&h))
+}
+
+/// Detects a 2-state (`id, id + 1`) or 3-state (`id, id + 2`, normal/hover/pressed) button pair
+/// starting at `id`. Returns `Some((normal_id, pressed_id, step))`.
+pub fn button_pair_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> Option<(u32, u32, u32)> {
+    if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+        return None;
+    }
+    let (w, h) = size_of(id)?;
+    if !(12..=260).contains(&w) || !(12..=120).contains(&h) || (w, h) == (44, 44) {
+        return None;
+    }
+    if size_of(id + 1) != Some((w, h)) {
+        return None;
+    }
+    if size_of(id + 2) == Some((w, h)) && size_of(id + 3) != Some((w, h)) {
+        Some((id, id + 2, 3))
+    } else {
+        Some((id, id + 1, 2))
+    }
+}
+
+/// Detects a checkbox or radio switch pair (`id, id + 1`) starting at `id`.
+/// Returns `Some((off_id, on_id, 2))`.
+pub fn switch_pair_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> Option<(u32, u32, u32)> {
+    if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+        return None;
+    }
+    let (w, h) = size_of(id)?;
+    if !(10..=48).contains(&w) || !(10..=48).contains(&h) || w.abs_diff(h) > 16 || (w, h) == (44, 44) {
+        return None;
+    }
+    if size_of(id + 1) != Some((w, h)) {
+        return None;
+    }
+    Some((id, id + 1, 2))
+}
+
 /// True when the nine pieces of a frame repeat without a visible seam: the first and last column
 /// (rows for the side edges) of the top/bottom edges, the side edges and the centre must match.
 /// Pieces cut out of a single picture do not have that property, and fully transparent pieces are not frames.
@@ -953,6 +997,28 @@ mod tests {
         assert!(!frame_tiles_seamlessly(&picture));
         let empty: Vec<GumpBitmap> = (0..9).map(|_| GumpBitmap { width: 6, height: 6, rgba: vec![0; 6 * 6 * 4] }).collect();
         assert!(!frame_tiles_seamlessly(&empty), "transparent pieces are not a frame");
+    }
+
+    #[test]
+    fn detects_button_switch_and_tiled_candidates() {
+        let size_of = |id: u32| -> Option<(u32, u32)> {
+            match id {
+                208..=211 => Some((19, 20)), // radio (208/209) + checkbox (210/211)
+                247 | 248 => Some((63, 23)), // 2-state OK button
+                4005..=4007 => Some((30, 22)), // 3-state arrow button
+                2624 => Some((32, 32)), // tiled background
+                2240..=2245 => Some((44, 44)), // spell icons (excluded)
+                _ => None,
+            }
+        };
+        assert_eq!(switch_pair_at(208, size_of), Some((208, 209, 2)));
+        assert_eq!(switch_pair_at(210, size_of), Some((210, 211, 2)));
+        assert_eq!(switch_pair_at(247, size_of), None, "63x23 is too wide for a checkbox/radio");
+        assert_eq!(button_pair_at(247, size_of), Some((247, 248, 2)));
+        assert_eq!(button_pair_at(4005, size_of), Some((4005, 4007, 3)));
+        assert_eq!(button_pair_at(2240, size_of), None, "spell icons are excluded");
+        assert!(is_tiled_gump_at(2624, size_of));
+        assert!(!is_tiled_gump_at(2240, size_of));
     }
 
     #[test]
