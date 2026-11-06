@@ -67,6 +67,10 @@ pub struct GumpStudioTab {
     fav_name: String,
     resizepic_search: String,
     resizepic_list: Option<Vec<u32>>,
+    /// background scan in progress: (next start id, candidates found so far)
+    resizepic_scan: Option<(u32, Vec<u32>)>,
+    resizepic_all: bool,
+    resizepic_page: usize,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
@@ -95,6 +99,9 @@ impl Default for GumpStudioTab {
             fav_name: String::new(),
             resizepic_search: String::new(),
             resizepic_list: None,
+            resizepic_scan: None,
+            resizepic_all: false,
+            resizepic_page: 0,
             text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
@@ -852,51 +859,113 @@ impl GumpStudioTab {
         }
     }
 
-    /// Browser of the resizepic frames found in the client gumps; clicking one sets it on the selected background.
+    /// Runs part of the resizepic scan (about 8 ms per call) so opening the browser never freezes the UI.
+    fn step_resizepic_scan(&mut self, d: &GumpStudioData) {
+        let Some(gi) = d.gump_index else {
+            self.resizepic_list = Some(Vec::new());
+            return;
+        };
+        let size_of = |id: u32| -> Option<(u32, u32)> {
+            let i = id as usize;
+            if !gi.is_valid(i) {
+                return None;
+            }
+            if gi.is_uop() {
+                gi.get_data(i).filter(|b| b.len() >= 8).map(|b| (u32::from_le_bytes([b[0], b[1], b[2], b[3]]), u32::from_le_bytes([b[4], b[5], b[6], b[7]])))
+            } else {
+                Some((((gi.entries[i].extra >> 16) & 0xFFFF) as u32, (gi.entries[i].extra & 0xFFFF) as u32))
+            }
+        };
+        let seamless = |id: u32| {
+            let parts: Vec<GumpBitmap> = (0..9).filter_map(|k| decode_gump_id(gi, id + k)).collect();
+            frame_tiles_seamlessly(&parts)
+        };
+        let (mut next, mut found) = self.resizepic_scan.take().unwrap_or((0, Vec::new()));
+        let start = std::time::Instant::now();
+        while next + 8 <= 0xFFFF && start.elapsed() < std::time::Duration::from_millis(8) {
+            if let Some(r) = KNOWN_NON_FRAMES.iter().find(|r| r.contains(&next)) {
+                next = *r.end() + 1;
+                continue;
+            }
+            if is_resizepic_start(next, &size_of, &seamless) {
+                found.push(next);
+                next += 9;
+            } else {
+                next += 1;
+            }
+        }
+        if next + 8 <= 0xFFFF {
+            self.resizepic_scan = Some((next, found));
+        } else {
+            self.resizepic_list = Some(found);
+        }
+    }
+
+    /// Browser of resizepic candidates (found in the background) or of every gump; clicking one sets
+    /// it on the selected background.
     fn resizepic_window(&mut self, ctx: &egui::Context, d: &GumpStudioData) {
         if self.resizepic_list.is_none() {
-            self.resizepic_list = Some(match d.gump_index {
-                Some(gi) => find_resizepics(0xFFFF, |id| {
-                    let i = id as usize;
-                    if !gi.is_valid(i) {
-                        return None;
-                    }
-                    if gi.is_uop() {
-                        gi.get_data(i).filter(|b| b.len() >= 8).map(|b| (u32::from_le_bytes([b[0], b[1], b[2], b[3]]), u32::from_le_bytes([b[4], b[5], b[6], b[7]])))
-                    } else {
-                        Some((((gi.entries[i].extra >> 16) & 0xFFFF) as u32, (gi.entries[i].extra & 0xFFFF) as u32))
-                    }
-                }, |id| {
-                    let parts: Vec<GumpBitmap> = (0..9).filter_map(|k| decode_gump_id(gi, id + k)).collect();
-                    frame_tiles_seamlessly(&parts)
-                }),
-                None => Vec::new(),
-            });
+            self.step_resizepic_scan(d);
+            ctx.request_repaint();
         }
-        let list = self.resizepic_list.clone().unwrap_or_default();
+        let scanning = self.resizepic_list.is_none();
+        let progress = self.resizepic_scan.as_ref().map_or(1.0, |(n, _)| *n as f32 / 65535.0);
+        let candidates: Vec<u32> = match (&self.resizepic_list, &self.resizepic_scan) {
+            (Some(l), _) => l.clone(),
+            (None, Some((_, f))) => f.clone(),
+            _ => Vec::new(),
+        };
+        let all_ids: Vec<u32> = if self.resizepic_all {
+            d.gump_index.map(|gi| (0..0xFFFFu32).filter(|&i| gi.is_valid(i as usize)).collect()).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let list = if self.resizepic_all { all_ids } else { candidates };
         let mut open = true;
         let mut pick: Option<u32> = None;
-        egui::Window::new(t!("gs.resizepic.title")).open(&mut open).fixed_size([560.0, 420.0]).show(ctx, |ui| {
+        egui::Window::new(t!("gs.resizepic.title")).open(&mut open).fixed_size([560.0, 460.0]).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label(t!("gs.resizepic.search"));
                 ui.text_edit_singleline(&mut self.resizepic_search);
+                if let Ok(id) = self.resizepic_search.trim().parse::<u32>() {
+                    if ui.button(t!("gs.resizepic.use_id", id = id)).clicked() {
+                        pick = Some(id);
+                    }
+                }
             });
+            ui.checkbox(&mut self.resizepic_all, t!("gs.resizepic.all"));
+            if scanning && !self.resizepic_all {
+                ui.add(egui::ProgressBar::new(progress).text(t!("gs.resizepic.scanning", n = (progress * 100.0) as u32)));
+            }
             ui.label(t!("gs.resizepic.count", n = list.len()));
             ui.label(t!("gs.resizepic.tip"));
             ui.separator();
             let q = self.resizepic_search.trim().to_string();
+            let shown: Vec<u32> = list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
+            const PAGE: usize = 30;
+            let pages = shown.len().div_ceil(PAGE).max(1);
+            self.resizepic_page = self.resizepic_page.min(pages - 1);
+            ui.horizontal(|ui| {
+                if ui.add_enabled(self.resizepic_page > 0, egui::Button::new(t!("gs.resizepic.prev"))).clicked() {
+                    self.resizepic_page -= 1;
+                }
+                ui.label(t!("gs.resizepic.page", n = self.resizepic_page + 1, total = pages));
+                if ui.add_enabled(self.resizepic_page + 1 < pages, egui::Button::new(t!("gs.resizepic.next"))).clicked() {
+                    self.resizepic_page += 1;
+                }
+            });
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 egui::Grid::new("gs_resizepic_grid").spacing([8.0, 8.0]).show(ui, |ui| {
-                    let shown: Vec<u32> = list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
-                    for (n, id) in shown.into_iter().enumerate() {
+                    for (n, id) in shown.iter().copied().skip(self.resizepic_page * PAGE).take(PAGE).enumerate() {
                         ui.vertical(|ui| {
-                            match self.resize_tex(ctx, d, id, 96, 72) {
-                                Some(t) => {
-                                    if ui.add(egui::ImageButton::new((t.id(), t.size_vec2()))).clicked() {
-                                        pick = Some(id);
-                                    }
+                            // a frame is shown composed; any other gump as a plain thumbnail
+                            let tex = self.resize_tex(ctx, d, id, 96, 72).or_else(|| self.gump_tex(ctx, d, id, 0));
+                            if let Some(t) = tex {
+                                let sz = t.size_vec2();
+                                let k = (96.0 / sz.x).min(72.0 / sz.y).min(1.0);
+                                if ui.add(egui::ImageButton::new((t.id(), sz * k))).clicked() {
+                                    pick = Some(id);
                                 }
-                                None => {}
                             }
                             ui.small(id.to_string());
                         });

@@ -207,3 +207,10 @@ paperdoll.slot.20 = Cloak
 paperdoll.slot.21 = Backpack
 paperdoll.slot.22 = Robe
 paperdoll.slot.24 = Legs
+
+gs.resizepic.all = Show all gumps (not only candidates)
+gs.resizepic.scanning = Scanning the gumps... {n}%
+gs.resizepic.use_id = Use id {id}
+gs.resizepic.prev = Previous
+gs.resizepic.next = Next
+gs.resizepic.page = Page {n} of {total}
