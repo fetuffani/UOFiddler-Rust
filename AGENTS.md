@@ -17,3 +17,8 @@ Indique quais textos faltam e peça que sejam movidos para o sistema de localiza
 
 Never add a hard-coded user-visible string. Use the localization system.
 Nunca acrescente texto visível ao usuário fixo no código. Use o sistema de localização.
+
+## Issues / Tarefas
+
+- Do not pick an issue that is assigned to someone else, unless you were explicitly directed to work on it. Unassigned issues are free to take.
+- Não pegue uma issue atribuída a outra pessoa, a menos que você tenha sido direcionado explicitamente a trabalhar nela. Issues sem responsável estão livres.

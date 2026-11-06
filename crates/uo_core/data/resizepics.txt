@@ -1,0 +1,15 @@
+# Manual list of resizepics (frames drawn with `resizepic`). Fill it in by hand.
+# One entry per line:   valid <id>[-<id>]     the id starts a resizepic even if the shape rule does not detect it
+#                       invalid <id>[-<id>]   never list these start ids (they pass the shape rule but are not frames)
+# `invalid` wins over `valid`. Text after # is a comment. The same format can be placed in the file
+# ~/.config/uofiddler/gumpstudio_resizepics.txt (merged at run time, no rebuild needed).
+
+valid 83         # confirmed by the project owner; all nine pieces are 16x16 so the proportion rule cannot recognise it
+
+invalid 1423
+invalid 1500
+invalid 1509
+invalid 1653
+invalid 2240-2302   # spellbook icon pages (2295 is a phase-shifted start of the same family)
+invalid 5516        # 'Account' shield pieces
+invalid 7000-7999   # icon pages

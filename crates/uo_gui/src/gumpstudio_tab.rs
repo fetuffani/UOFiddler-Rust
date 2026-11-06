@@ -91,6 +91,7 @@ pub struct GumpStudioTab {
     resizepic_search: String,
     resizepic_list: Vec<u32>,
     resizepic_scan_pos: u32,
+    resizepic_lists: Option<ResizepicLists>,
     gump_list: Vec<u32>,
     gump_scan_pos: u32,
     tiled_list: Vec<u32>,
@@ -130,6 +131,7 @@ impl Default for GumpStudioTab {
             resizepic_search: String::new(),
             resizepic_list: Vec::new(),
             resizepic_scan_pos: 0,
+            resizepic_lists: None,
             gump_list: Vec::new(),
             gump_scan_pos: 0,
             tiled_list: Vec::new(),
@@ -969,8 +971,20 @@ impl GumpStudioTab {
         }
     }
 
+    /// Built-in manual list plus the user's own `gumpstudio_resizepics.txt` (same format).
+    fn resizepic_lists() -> ResizepicLists {
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
+        let user = std::path::PathBuf::from(home).join(".config/uofiddler/gumpstudio_resizepics.txt");
+        let extra = std::fs::read_to_string(user).map(|t| ResizepicLists::parse(&t)).unwrap_or_default();
+        ResizepicLists::builtin().merged(extra)
+    }
+
     fn step_picker_scan(&mut self, ctx: &egui::Context, d: &GumpStudioData, mode: PickerMode) -> (bool, u32, usize) {
         const MAX_ID: u32 = 0xFFFF;
+        if self.resizepic_lists.is_none() {
+            self.resizepic_lists = Some(Self::resizepic_lists());
+        }
+        let lists = self.resizepic_lists.clone().unwrap_or_default();
         let start = std::time::Instant::now();
         let mut steps = 0u32;
         match mode {
@@ -978,8 +992,13 @@ impl GumpStudioTab {
                 if let Some(gi) = d.gump_index {
                     while self.resizepic_scan_pos + 8 <= MAX_ID {
                         let id = self.resizepic_scan_pos;
+                        if let Some(r) = lists.invalid_range(id) {
+                            self.resizepic_scan_pos = *r.end() + 1; // skip the whole curated range
+                            continue;
+                        }
                         let found = is_resizepic_at(
                             id,
+                            &lists,
                             |k| gi.gump_size(k as usize),
                             |k| {
                                 let parts: Vec<GumpBitmap> = (0..9).filter_map(|p| decode_gump_id(gi, k + p)).collect();
@@ -1189,6 +1208,9 @@ impl GumpStudioTab {
                 ui.label(t!("gs.picker.count", n = count));
             }
             ui.label(tip);
+            if mode == PickerMode::Resizepic {
+                ui.label(t!("gs.resizepic.manual"));
+            }
             ui.separator();
             let q = self.resizepic_search.trim().to_lowercase();
             match mode {
