@@ -9,6 +9,12 @@
 
 ---
 
+## 🤝 Contributing
+
+Every Pull Request must meet the [acceptance criteria](CONTRIBUTING.md). The first one: **all user-visible text must be localized**; a PR without it is refused. Agents: see [AGENTS.md](AGENTS.md).
+
+---
+
 ## ⚡ Highlights & Why UOFiddler?
 
 Traditional UOFiddler on Linux via Wine or Mono is prone to graphical glitches, crashes, and path casing errors. **UOFiddler** provides:

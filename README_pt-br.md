@@ -9,6 +9,12 @@
 
 ---
 
+## 🤝 Como contribuir
+
+Todo Pull Request deve cumprir os [critérios de aceite](CONTRIBUTING.md). O primeiro: **todo texto visível ao usuário deve ser localizado**; um PR sem isso é recusado. Agentes: veja o [AGENTS.md](AGENTS.md).
+
+---
+
 ## ⚡ Destaques e Diferenciais do UOFiddler
 
 A execução do UOFiddler-Rust original em C# via Wine ou Mono no Linux causa frequentes falhas de renderização, travamentos e problemas de case-sensitivity no sistema de arquivos. O **UOFiddler** soluciona tudo de forma definitiva:
