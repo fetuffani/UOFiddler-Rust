@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=UOFiddler
+GenericName=Ultima Online file viewer and editor
+Comment=Browse and edit Ultima Online client files: art, gumps, animations, maps and more
+Exec=uofiddler
+Icon=uofiddler
+Terminal=false
+Categories=Graphics;Development;
+Keywords=Ultima;Online;UO;mul;uop;map;editor;
