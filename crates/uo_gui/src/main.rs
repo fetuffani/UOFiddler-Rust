@@ -15,6 +15,8 @@ mod gumpstudio_tab;
 mod map;
 mod packets_tab;
 mod paperdoll_tab;
+mod update_ui;
+mod updater;
 
 /// All 38 bitfield flags defined in Ultima Online TileData
 /// Symbol-only button label (not translatable text).
@@ -514,6 +516,7 @@ pub struct UoFiddlerApp {
     // Settings dialog state
     show_settings_dialog: bool,
     show_about_dialog: bool,
+    update_ui: update_ui::UpdateUi,
     settings_classic_input: String,
     settings_ec_input: String,
     settings_high_seas: bool,
@@ -732,6 +735,7 @@ impl Default for UoFiddlerApp {
             splash_msg: "splash.start",
             show_settings_dialog: false,
             show_about_dialog: false,
+            update_ui: update_ui::UpdateUi::new(),
             settings_classic_input: classic_str,
             settings_ec_input: ec_str,
             settings_high_seas: hs,
@@ -2492,6 +2496,9 @@ impl eframe::App for UoFiddlerApp {
             }
         });
 
+        // ------------------ 4b. AUTO-UPDATER (check, new version dialog, download) ------------------
+        self.update_ui.show(ctx, &mut self.file_manager);
+
         // ------------------ 5. SETTINGS / DIRECTORY PATHS DIALOG ------------------
         if self.show_settings_dialog {
             egui::Window::new(t!("settings.title"))
@@ -2589,6 +2596,8 @@ impl eframe::App for UoFiddlerApp {
                         &mut self.settings_high_seas,
                         t!("settings.highseas"),
                     );
+                    ui.add_space(8.0);
+                    self.update_ui.settings_ui(ui, ctx, &mut self.file_manager);
 
                     ui.add_space(14.0);
                     ui.horizontal(|ui| {
@@ -6098,6 +6107,11 @@ impl UoFiddlerApp {
 }
 
 fn main() -> eframe::Result<()> {
+    // Headless entry points (`--version`, `--self-update <dir>`): no window.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(code) = updater::cli(&args) {
+        std::process::exit(code);
+    }
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])

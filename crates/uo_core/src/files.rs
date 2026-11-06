@@ -45,6 +45,10 @@ pub struct FileManager {
     pub uo_dir: Option<PathBuf>,
     pub uo_ec_dir: Option<PathBuf>,
     pub high_seas: bool,
+    /// check GitHub for a newer release when the app starts
+    pub auto_update_check: bool,
+    /// build number of the release the user chose to ignore
+    pub ignored_update_build: Option<u32>,
     file_map: HashMap<String, PathBuf>,
     ec_file_map: HashMap<String, PathBuf>,
 }
@@ -69,6 +73,8 @@ impl FileManager {
             uo_dir: None,
             uo_ec_dir: None,
             high_seas: true,
+            auto_update_check: true,
+            ignored_update_build: None,
             file_map: HashMap::new(),
             ec_file_map: HashMap::new(),
         };
@@ -243,6 +249,11 @@ impl FileManager {
                         if let Some(lang) = val.get("ui_language").and_then(|v| v.as_str()) {
                             self.ui_language = Some(lang.to_string());
                         }
+                        if let Some(b) = val.get("auto_update_check").and_then(|v| v.as_bool()) {
+                            self.auto_update_check = b;
+                        }
+                        self.ignored_update_build =
+                            val.get("ignored_update_build").and_then(|v| v.as_u64()).map(|n| n as u32);
                         return;
                     }
                 }
@@ -262,6 +273,8 @@ impl FileManager {
             "high_seas": self.high_seas,
             "language": self.language,
             "ui_language": self.ui_language,
+            "auto_update_check": self.auto_update_check,
+            "ignored_update_build": self.ignored_update_build,
         });
 
         if let Ok(str_val) = serde_json::to_string_pretty(&val) {

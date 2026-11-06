@@ -12,3 +12,8 @@ rfd = "0.15" # File dialog for selecting UO directory
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 egui-phosphor = "0.7" # Icon font for the map editor UI (0.7.x targets egui 0.29)
+ureq = { version = "2", default-features = false, features = ["tls"] } # Auto-updater: GitHub releases over HTTPS (rustls)
+sha2 = "0.10" # Auto-updater: SHA-256 of the downloaded release asset
+zip = { version = "2", default-features = false, features = ["deflate"] } # Auto-updater: Windows release .zip
+flate2 = "1" # Auto-updater: Linux release .tar.gz
+tar = "0.4"
