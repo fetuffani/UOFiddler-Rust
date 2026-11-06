@@ -68,3 +68,12 @@ gs.resizepic.title = Resizepic candidates
 gs.resizepic.search = Search by id:
 gs.resizepic.count = {n} candidates found in the client gumps (automatic list: it may include pictures that are not frames)
 gs.resizepic.tip = Click a frame to use it on the selected background
+
+gs.fav.title = Favorites
+gs.fav.name = Name:
+gs.fav.save_selected = Save selected element
+gs.fav.save_all = Save whole gump
+gs.fav.insert = Insert
+gs.fav.delete = Delete
+gs.fav.empty = No favorites yet
+gs.fav.count = {n} elements
