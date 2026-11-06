@@ -471,6 +471,69 @@ fn tile_into(dst: &mut [u8], dw: usize, dh: usize, src: &GumpBitmap, x0: i32, y0
     }
 }
 
+/// Ids that start a resizepic: nine consecutive gumps `id..id + 8` in the order
+/// corner, edge, corner / edge, centre, edge / corner, edge, corner where
+/// - the four corners have the same size,
+/// - opposite edges have the same size (top = bottom, left = right),
+/// - the top and bottom edges are as tall as the corners, the side edges as wide as the corners,
+/// - no piece is larger than 512 pixels (a frame is made of small tiles),
+/// - and `seamless(id)` accepts the pixels (see `frame_tiles_seamlessly`).
+/// `size_of` returns the (width, height) of a gump, `None` when it does not exist.
+pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>, seamless: impl Fn(u32) -> bool) -> Vec<u32> {
+    let mut out = Vec::new();
+    let mut id = 0;
+    while id + 8 <= max_id {
+        let sizes: Option<Vec<(u32, u32)>> = (0..9).map(|k| size_of(id + k)).collect();
+        if let Some(s) = sizes {
+            let (tl, t, tr, l, c, r, bl, b, br) = (s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]);
+            let corners_equal = tl == tr && tl == bl && tl == br;
+            let opposite_edges_equal = t == b && l == r;
+            let edges_fit = t.1 == tl.1 && l.0 == tl.0;
+            let small = s.iter().all(|&(w, h)| w > 0 && h > 0 && w <= 512 && h <= 512);
+            if corners_equal && opposite_edges_equal && edges_fit && small && c.0 > 0 && seamless(id) {
+                out.push(id);
+                id += 9; // the pieces of one resizepic never start another
+                continue;
+            }
+        }
+        id += 1;
+    }
+    out
+}
+
+/// True when the nine pieces of a frame repeat without a visible seam: the first and last column
+/// (rows for the side edges) of the top/bottom edges, the side edges and the centre must match.
+/// Pieces cut out of a single picture do not have that property, and fully transparent pieces are not frames.
+pub fn frame_tiles_seamlessly(parts: &[GumpBitmap]) -> bool {
+    if parts.len() < 9 {
+        return false;
+    }
+    // mean absolute difference between the first and the last column (`horizontal`) or row
+    let seam = |b: &GumpBitmap, horizontal: bool| -> f32 {
+        let (w, h) = (b.width as usize, b.height as usize);
+        if w == 0 || h == 0 {
+            return f32::MAX;
+        }
+        let px = |x: usize, y: usize| &b.rgba[(y * w + x) * 4..(y * w + x) * 4 + 4];
+        let n = if horizontal { h } else { w };
+        let total: f32 = (0..n)
+            .map(|i| {
+                let (a, c) = if horizontal { (px(0, i), px(w - 1, i)) } else { (px(i, 0), px(i, h - 1)) };
+                (0..4).map(|k| (a[k] as f32 - c[k] as f32).abs()).sum::<f32>() / 4.0
+            })
+            .sum();
+        total / n as f32
+    };
+    // a frame has visible content: opaque centre and a corner that is not empty
+    let opaque = |b: &GumpBitmap| b.rgba.chunks_exact(4).filter(|p| p[3] > 0).count() as f32 / (b.rgba.len() / 4).max(1) as f32;
+    if opaque(&parts[4]) < 0.5 || opaque(&parts[0]) < 0.1 {
+        return false;
+    }
+    let edges = seam(&parts[1], true).max(seam(&parts[7], true)).max(seam(&parts[3], false)).max(seam(&parts[5], false));
+    let centre = seam(&parts[4], true).max(seam(&parts[4], false));
+    edges <= 35.0 && centre <= 10.0
+}
+
 /// Builds a `w` x `h` image out of the 9 pieces of a resizepic (`gump_id .. gump_id + 8`):
 /// 0 TL, 1 top, 2 TR, 3 left, 4 centre, 5 right, 6 BL, 7 bottom, 8 BR.
 pub fn compose_resizepic(parts: &[GumpBitmap], w: i32, h: i32) -> Option<GumpBitmap> {
@@ -607,6 +670,37 @@ mod tests {
             el(ElementKind::Button { normal: 1, pressed: 2, action: ButtonAction::Reply, page: 0, id: 7 }, 0, 0, 0, 0, 0),
         ];
         assert_eq!(d.resolved_ids(), vec![1, 2, 7]);
+    }
+
+    #[test]
+    fn finds_nine_piece_frames_by_size_order_and_seams() {
+        // gumps 100..=108 form a frame (corners 4x6, top/bottom edges 10x6, sides 4x10, centre 10x10)
+        let frame = [(4, 6), (10, 6), (4, 6), (4, 10), (10, 10), (4, 10), (4, 6), (10, 6), (4, 6)];
+        // 200..=208: same size pattern but the pieces are cut from one picture (no seams)
+        let size_of = |id: u32| -> Option<(u32, u32)> {
+            if (100..109).contains(&id) { Some(frame[(id - 100) as usize]) } else if (200..209).contains(&id) { Some(frame[(id - 200) as usize]) } else if id == 50 || id == 51 { Some((8, 8)) } else { None }
+        };
+        let seamless = |id: u32| id == 100;
+        assert_eq!(find_resizepics(300, size_of, seamless), vec![100]);
+        // corners of different sizes are never a frame
+        let bad = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 302 { (5, 6) } else { frame[(id - 300) as usize] }) };
+        assert!(find_resizepics(400, bad, |_| true).is_empty());
+        // opposite edges must be equal
+        let bad2 = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 307 { (11, 6) } else { frame[(id - 300) as usize] }) };
+        assert!(find_resizepics(400, bad2, |_| true).is_empty());
+    }
+
+    #[test]
+    fn seams_tell_tiles_from_picture_pieces() {
+        let flat = |v: u8| GumpBitmap { width: 6, height: 6, rgba: vec![v; 6 * 6 * 4] }; // opaque grey (alpha = v)
+        let gradient = GumpBitmap { width: 6, height: 6, rgba: (0..6 * 6 * 4).map(|i| if (i / 4) % 6 < 3 { 0 } else { 255 }).collect() };
+        let tiles: Vec<GumpBitmap> = (0..9).map(|_| flat(100)).collect();
+        assert!(frame_tiles_seamlessly(&tiles));
+        let mut picture = tiles.clone();
+        picture[1] = gradient; // top edge: left half black, right half white
+        assert!(!frame_tiles_seamlessly(&picture));
+        let empty: Vec<GumpBitmap> = (0..9).map(|_| GumpBitmap { width: 6, height: 6, rgba: vec![0; 6 * 6 * 4] }).collect();
+        assert!(!frame_tiles_seamlessly(&empty), "transparent pieces are not a frame");
     }
 
     #[test]
