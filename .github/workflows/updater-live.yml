@@ -1,0 +1,80 @@
+name: Updater live test
+
+# Manual only: Actions > Updater live test > Run workflow.
+# Takes an OLD published release that already has the updater (default build-29), then
+#  1) applies the LATEST published release to it with the real packages and the real SHA256SUMS.txt
+#     (`--self-update <dir>` over the downloaded release files), on Linux (tar.gz) and Windows (zip);
+#  2) on Linux, starts the old build under Xvfb and takes a screenshot to see whether the
+#     real GitHub API check shows the update dialog.
+
+on:
+  workflow_dispatch:
+    inputs:
+      old_tag:
+        description: Old release tag that contains the updater
+        default: build-29
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  REPO: mbnunes/UOFiddler-Rust
+  OLD_TAG: ${{ github.event.inputs.old_tag || 'build-29' }}
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download old and latest releases
+        run: |
+          mkdir -p old new
+          gh release download "$OLD_TAG" -R "$REPO" -p '*linux-x86_64.tar.gz' -D old
+          LATEST=$(gh release view -R "$REPO" --json tagName -q .tagName)
+          echo "LATEST=$LATEST" >> "$GITHUB_ENV"
+          gh release download "$LATEST" -R "$REPO" -p '*linux-x86_64.tar.gz' -p 'SHA256SUMS.txt' -D new
+          ls -l old new
+      - name: Self-update with the real release files
+        run: |
+          mkdir inst && tar -xzf old/*.tar.gz -C inst && find inst -type f
+          EXE=$(find inst -type f -name uofiddler | head -1)
+          echo "installed: $($EXE --version)"
+          $EXE --self-update new
+          echo "after: $($EXE --version)"
+          ls -l "$(dirname "$EXE")"
+          test "$($EXE --version)" != "${OLD_TAG#build-}" && echo "UPDATED OK"
+      - name: GUI check under Xvfb (real GitHub API)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb imagemagick libgl1-mesa-dri libxkbcommon-x11-0 >/dev/null
+          rm -rf gui && mkdir gui && tar -xzf old/*.tar.gz -C gui
+          EXE=$(find gui -type f -name uofiddler | head -1)
+          export LIBGL_ALWAYS_SOFTWARE=1
+          xvfb-run -a -s "-screen 0 1400x900x24" bash -c "$EXE >gui.log 2>&1 & sleep 25; import -window root shot.png; kill %1" || true
+          tail -5 gui.log || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: updater-live-linux
+          path: |
+            shot.png
+            gui.log
+          if-no-files-found: warn
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Download, self-update with the real release files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory old, new, inst | Out-Null
+          gh release download $env:OLD_TAG -R $env:REPO -p '*windows-x86_64.zip' -D old
+          $latest = gh release view -R $env:REPO --json tagName -q .tagName
+          gh release download $latest -R $env:REPO -p '*windows-x86_64.zip' -p 'SHA256SUMS.txt' -D new
+          Expand-Archive (Get-ChildItem old\*.zip).FullName -DestinationPath inst
+          $exe = (Resolve-Path inst\uo_gui.exe).Path
+          "installed: $(& $exe --version)"
+          & $exe --self-update (Resolve-Path new).Path
+          "exit: $LASTEXITCODE"
+          "after: $(& $exe --version)"
+          Get-ChildItem inst
+          if ($LASTEXITCODE -ne 0 -or (& $exe --version) -eq ($env:OLD_TAG -replace 'build-','')) { throw "not updated" }
+          "UPDATED OK"
