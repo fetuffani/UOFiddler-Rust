@@ -3070,7 +3070,7 @@ impl UoFiddlerApp {
 
                 if ui
                     .button(t!("common.export_png"))
-                    .on_hover_text("Salvar imagem do item na pasta 'exported_art/'")
+                    .on_hover_text(t!("items.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_item_bitmap(self.item_selected) {
@@ -3593,7 +3593,7 @@ impl UoFiddlerApp {
 
                 if ui
                     .button(t!("common.export_png"))
-                    .on_hover_text("Salvar imagem do terreno na pasta 'exported_art/'")
+                    .on_hover_text(t!("land.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_land_bitmap(self.land_selected) {
@@ -3847,7 +3847,7 @@ impl UoFiddlerApp {
 
                 if ui
                     .button(t!("common.export_png"))
-                    .on_hover_text("Salvar imagem do Gump na pasta 'exported_art/'")
+                    .on_hover_text(t!("gumps.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_current_gump_bitmap() {
@@ -4145,7 +4145,7 @@ impl UoFiddlerApp {
 
                 if ui
                     .button(t!("common.export_png"))
-                    .on_hover_text("Salvar imagem da textura na pasta 'exported_art/'")
+                    .on_hover_text(t!("textures.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_current_texture_bitmap() {
