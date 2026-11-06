@@ -5570,7 +5570,7 @@ impl UoFiddlerApp {
             .default_width(260.0)
             .min_width(200.0)
             .show_inside(ui, |ui| {
-                ui.heading("Light Patterns (light.mul)");
+                ui.heading(t!("light.heading"));
                 ui.separator();
                 let total = self.valid_lights.len();
                 egui::ScrollArea::vertical()
@@ -5578,7 +5578,7 @@ impl UoFiddlerApp {
                     .show_rows(ui, 20.0, total, |ui, row_range| {
                         for idx in row_range {
                             let lid = self.valid_lights[idx];
-                            let label = format!("Light {} (0x{:02X})", lid, lid);
+                            let label = t!("light.item", id = lid, hex = format!("{:02X}", lid));
                             let is_sel = self.light_id == lid;
                             let resp = ui.selectable_label(is_sel, label);
                             if resp.clicked() {
@@ -5593,9 +5593,11 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Light Mask #{} - Dimensões: {} x {} px",
-                self.light_id, self.light_dim.0, self.light_dim.1
+            ui.heading(t!(
+                "light.title",
+                id = self.light_id,
+                w = self.light_dim.0,
+                h = self.light_dim.1
             ));
             ui.separator();
 
@@ -5618,7 +5620,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhum padrão de luz carregado",
+                        t!("light.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -5629,12 +5631,12 @@ impl UoFiddlerApp {
 
     // 14. FONTS TAB
     fn render_fonts_tab(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Fonts Manager (fonts.mul)");
+        ui.heading(t!("fonts.heading"));
         ui.horizontal(|ui| {
-            ui.label("Fonte:");
+            ui.label(t!("fonts.font"));
             for i in 0..10 {
                 if ui
-                    .selectable_label(self.font_selected == i, format!("Fonte {}", i))
+                    .selectable_label(self.font_selected == i, t!("fonts.font_n", n = i))
                     .clicked()
                 {
                     self.font_selected = i;
@@ -5644,7 +5646,7 @@ impl UoFiddlerApp {
         });
 
         ui.horizontal(|ui| {
-            ui.label("Texto de Teste:");
+            ui.label(t!("fonts.test_text"));
             if ui
                 .text_edit_singleline(&mut self.font_preview_text)
                 .changed()
@@ -5674,7 +5676,7 @@ impl UoFiddlerApp {
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
-                    "Sem preview de texto",
+                    t!("fonts.empty"),
                     egui::FontId::proportional(14.0),
                     egui::Color32::GRAY,
                 );
@@ -5684,10 +5686,10 @@ impl UoFiddlerApp {
 
     // 15. SKILLS TAB
     fn render_skills_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Skills Table (skills.mul)");
+        ui.heading(t!("skills.heading"));
         if let Some(si) = &self.skills_index {
             let valid: Vec<usize> = (0..100).filter(|&i| si.is_valid(i)).collect();
-            ui.label(format!("Habilidades encontradas: {}", valid.len()));
+            ui.label(t!("skills.found", n = valid.len()));
             ui.separator();
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
@@ -5707,7 +5709,7 @@ impl UoFiddlerApp {
                                 ui.label(name);
                                 if has_action {
                                     ui.label(
-                                        egui::RichText::new("[Ação]")
+                                        egui::RichText::new(t!("skills.action"))
                                             .color(egui::Color32::from_rgb(102, 187, 106)),
                                     );
                                 }
@@ -5716,15 +5718,15 @@ impl UoFiddlerApp {
                     }
                 });
         } else {
-            ui.label("skills.mul / skills.idx não encontrado.");
+            ui.label(t!("skills.missing"));
         }
     }
 
     // 16. SPEECH TAB
     fn render_speech_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Speech Keywords (speech.mul)");
+        ui.heading(t!("speech.heading"));
         ui.horizontal(|ui| {
-            ui.label("Buscar Palavra-chave:");
+            ui.label(t!("speech.search"));
             ui.text_edit_singleline(&mut self.speech_search);
             if ui.button(ICON_CLEAR).clicked() {
                 self.speech_search.clear();
@@ -5765,7 +5767,7 @@ impl UoFiddlerApp {
                     }
                 });
         } else {
-            ui.label("speech.mul não encontrado.");
+            ui.label(t!("common.not_found", file = "speech.mul"));
         }
     }
 
@@ -5776,19 +5778,19 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("AnimData (animdata.mul)");
+                ui.heading(t!("animdata.heading"));
                 ui.separator();
                 if let Some(adm) = &self.animdata_mgr {
                     let mut keys: Vec<u32> = adm.entries.keys().copied().collect();
                     keys.sort();
-                    ui.label(format!("Itens animados: {}", keys.len()));
+                    ui.label(t!("animdata.count", n = keys.len()));
 
                     egui::ScrollArea::vertical()
                         .auto_shrink([false, false])
                         .show_rows(ui, 20.0, keys.len(), |ui, row_range| {
                             for idx in row_range {
                                 let item_id = keys[idx];
-                                let label = format!("Item 0x{:04X} ({})", item_id, item_id);
+                                let label = t!("animdata.item", id = format!("{:04X}", item_id), dec = item_id);
                                 let is_sel = self.animdata_selected == Some(item_id);
                                 let resp = ui.selectable_label(is_sel, label);
                                 if resp.clicked() {
@@ -5816,24 +5818,24 @@ impl UoFiddlerApp {
                             }
                         });
                 } else {
-                    ui.label("animdata.mul não encontrado.");
+                    ui.label(t!("common.not_found", file = "animdata.mul"));
                 }
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("Propriedades de Animação");
+            ui.heading(t!("animdata.props"));
             ui.separator();
 
             if let Some(item_id) = self.animdata_selected {
                 if let Some(adm) = &self.animdata_mgr {
                     if let Some(e) = adm.entries.get(&item_id) {
-                        ui.label(format!("Item ID: 0x{:04X} ({})", e.item_id, e.item_id));
-                        ui.label(format!("Quantidade de Quadros: {}", e.frame_count));
-                        ui.label(format!("Intervalo de Quadros: {}", e.frame_interval));
-                        ui.label(format!("Start Delay: {}", e.frame_start));
-                        ui.label(format!(
-                            "Offsets de Quadros: {:?}",
-                            &e.frames[..e.frame_count as usize]
+                        ui.label(t!("animdata.item_id", id = format!("{:04X}", e.item_id), dec = e.item_id));
+                        ui.label(t!("animdata.frame_count", n = e.frame_count));
+                        ui.label(t!("animdata.frame_interval", n = e.frame_interval));
+                        ui.label(t!("animdata.start_delay", n = e.frame_start));
+                        ui.label(t!(
+                            "animdata.frame_offsets",
+                            list = format!("{:?}", &e.frames[..e.frame_count as usize])
                         ));
                     }
                 }
@@ -5857,7 +5859,7 @@ impl UoFiddlerApp {
                     }
                 });
             } else {
-                ui.label("Selecione um item animado na lista à esquerda.");
+                ui.label(t!("animdata.select"));
             }
         });
     }
@@ -5867,10 +5869,10 @@ impl UoFiddlerApp {
         if self.gamedata_archive.entries.is_empty() {
             ui.vertical_centered(|ui| {
                 ui.add_space(60.0);
-                ui.heading("⚠ GameData.uop não encontrado");
+                ui.heading(t!("gamedata.missing"));
                 ui.add_space(8.0);
-                ui.label("O arquivo GameData.uop contém as 79 tabelas de configuração do cliente 3D Enhanced (EC).");
-                ui.label("Configure o caminho da pasta do Ultima Online Enhanced nas Configurações (F3 ou Menu Arquivo).");
+                ui.label(t!("gamedata.missing1"));
+                ui.label(t!("gamedata.missing2"));
             });
             return;
         }
@@ -5881,7 +5883,7 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("Tabelas de Configuração");
+                ui.heading(t!("gamedata.heading"));
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
@@ -5913,7 +5915,7 @@ impl UoFiddlerApp {
                     .collect();
 
                 ui.label(
-                    egui::RichText::new(format!("Total: {} tabelas", matching.len()))
+                    egui::RichText::new(t!("gamedata.total", n = matching.len()))
                         .color(egui::Color32::GRAY),
                 );
                 ui.separator();
@@ -5937,9 +5939,9 @@ impl UoFiddlerApp {
 
                 ui.separator();
                 ui.group(|ui| {
-                    ui.label("Exportação:");
+                    ui.label(t!("gamedata.export"));
                     ui.horizontal(|ui| {
-                        if ui.button("Exportar Atual (CSV)").clicked() {
+                        if ui.button(t!("gamedata.export_current")).clicked() {
                             if let Some(entry) = self
                                 .gamedata_archive
                                 .entries
@@ -5947,14 +5949,15 @@ impl UoFiddlerApp {
                             {
                                 let filename = format!("export_{}", entry.name);
                                 if std::fs::write(&filename, &entry.raw_data).is_ok() {
-                                    self.status_message = format!(
-                                        "Tabela '{}' exportada com sucesso para '{}' 💾",
-                                        entry.name, filename
+                                    self.status_message = t!(
+                                        "gamedata.exported_one",
+                                        name = entry.name,
+                                        file = filename
                                     );
                                 }
                             }
                         }
-                        if ui.button("Exportar Todas (79)").clicked() {
+                        if ui.button(t!("gamedata.export_all")).clicked() {
                             let dir = std::path::Path::new("exported_gamedata");
                             let _ = std::fs::create_dir_all(dir);
                             let mut count = 0;
@@ -5964,10 +5967,7 @@ impl UoFiddlerApp {
                                     count += 1;
                                 }
                             }
-                            self.status_message = format!(
-                                "Exportadas {} tabelas para a pasta 'exported_gamedata/' 💾",
-                                count
-                            );
+                            self.status_message = t!("gamedata.exported_all", n = count);
                         }
                     });
                 });
@@ -5989,24 +5989,24 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.heading(&entry.name);
                     ui.label(
-                        egui::RichText::new(format!("(Índice {})", entry.index))
+                        egui::RichText::new(t!("gamedata.index", n = entry.index))
                             .color(egui::Color32::GRAY),
                     );
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Hash (64-bit):");
+                    ui.label(t!("gamedata.hash"));
                     ui.label(
                         egui::RichText::new(format!("0x{:016X}", entry.hash))
                             .monospace()
                             .color(egui::Color32::from_rgb(159, 168, 218)),
                     );
                     ui.separator();
-                    ui.label(format!("Linhas: {} | Colunas: {}", rows.len(), headers.len()));
+                    ui.label(t!("gamedata.rows_cols", rows = rows.len(), cols = headers.len()));
                     ui.separator();
-                    ui.label(format!(
-                        "Tamanho: {} KB (comp: {} KB)",
-                        entry.decompressed_size / 1024,
-                        entry.compressed_size / 1024
+                    ui.label(t!(
+                        "gamedata.size",
+                        kb = entry.decompressed_size / 1024,
+                        ckb = entry.compressed_size / 1024
                     ));
                 });
             });
@@ -6014,13 +6014,13 @@ impl UoFiddlerApp {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 if ui
-                    .selectable_label(!self.gamedata_view_raw, "📊 Tabela Estruturada")
+                    .selectable_label(!self.gamedata_view_raw, t!("gamedata.view_table"))
                     .clicked()
                 {
                     self.gamedata_view_raw = false;
                 }
                 if ui
-                    .selectable_label(self.gamedata_view_raw, "📝 Texto Raw (CSV / XML)")
+                    .selectable_label(self.gamedata_view_raw, t!("gamedata.view_raw"))
                     .clicked()
                 {
                     self.gamedata_view_raw = true;
@@ -6039,7 +6039,7 @@ impl UoFiddlerApp {
                 });
             } else {
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Filtrar linhas:");
+                    ui.label(t!("gamedata.filter_rows"));
                     ui.text_edit_singleline(&mut self.gamedata_row_search);
                     if !self.gamedata_row_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gamedata_row_search.clear();
@@ -6085,10 +6085,7 @@ impl UoFiddlerApp {
                     if filtered_rows.len() > 500 {
                         ui.add_space(8.0);
                         ui.label(
-                            egui::RichText::new(format!(
-                                "... exibindo primeiras 500 de {} linhas (use o filtro de linhas para refinar)",
-                                filtered_rows.len()
-                            ))
+                            egui::RichText::new(t!("gamedata.showing_first", n = filtered_rows.len()))
                             .italics()
                             .color(egui::Color32::GRAY),
                         );
