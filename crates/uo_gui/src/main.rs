@@ -1808,7 +1808,7 @@ impl UoFiddlerApp {
             }
         }
         let Some((_, _, tex, iw, ih)) = &self.overview_tex else {
-            ui.label("Arquivo facet não encontrado para esta faceta.");
+            ui.label(t!("map.facet_missing"));
             return;
         };
         let (iw, ih) = (*iw as f32, *ih as f32);
@@ -4897,13 +4897,13 @@ impl UoFiddlerApp {
 
     // 9. CLILOC TAB
     fn render_cliloc_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Cliloc Localization Table");
+        ui.heading(t!("cliloc.heading"));
         ui.horizontal(|ui| {
             // language of Cliloc.<suffix> (also used by the GumpStudio preview and saved in the settings)
             let langs = self.file_manager.available_languages();
             if !langs.is_empty() {
                 let mut chosen = self.file_manager.language.clone();
-                egui::ComboBox::from_label("Idioma")
+                egui::ComboBox::from_label(t!("cliloc.language"))
                     .selected_text(language_name(&chosen))
                     .show_ui(ui, |ui| {
                         for l in &langs {
@@ -4920,7 +4920,7 @@ impl UoFiddlerApp {
                 }
                 ui.separator();
             }
-            ui.label("Buscar Cliloc:");
+            ui.label(t!("cliloc.search"));
             ui.text_edit_singleline(&mut self.cliloc_search);
             if ui.button(ICON_CLEAR).clicked() {
                 self.cliloc_search.clear();
@@ -4977,7 +4977,7 @@ impl UoFiddlerApp {
                     });
             }
         } else {
-            ui.label("Arquivo Cliloc não encontrado para o idioma escolhido.");
+            ui.label(t!("cliloc.missing"));
         }
     }
 
@@ -4988,14 +4988,11 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("Sounds (sound.mul)");
-                ui.label(format!(
-                    "Total de efeitos sonoros: {}",
-                    self.valid_sounds.len()
-                ));
+                ui.heading(t!("sounds.heading"));
+                ui.label(t!("sounds.total", n = self.valid_sounds.len()));
 
                 ui.horizontal(|ui| {
-                    ui.label("Buscar:");
+                    ui.label(t!("common.search_plain"));
                     ui.text_edit_singleline(&mut self.sound_search);
                     if ui.button(ICON_CLEAR).clicked() {
                         self.sound_search.clear();
@@ -5045,24 +5042,18 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("Detalhes e Reprodução de Áudio");
+            ui.heading(t!("sounds.details"));
             ui.separator();
 
             if let Some(snd) = self.valid_sounds.get(self.sound_selected) {
-                ui.label(format!(
-                    "Sound ID: {} (0x{:03X})",
-                    snd.sound_id, snd.sound_id
-                ));
-                ui.label(format!("Nome do Arquivo: {}", snd.name));
-                ui.label(format!(
-                    "Tamanho PCM: {} bytes (WAV 22050Hz Mono)",
-                    snd.pcm_data.len()
-                ));
+                ui.label(t!("sounds.id", id = snd.sound_id, hex = format!("{:03X}", snd.sound_id)));
+                ui.label(t!("sounds.file_name", name = snd.name));
+                ui.label(t!("sounds.pcm_size", bytes = snd.pcm_data.len()));
 
                 ui.add_space(16.0);
                 if ui
                     .button(
-                        egui::RichText::new("▶ Tocar Som")
+                        egui::RichText::new(t!("sounds.play"))
                             .size(18.0)
                             .color(egui::Color32::from_rgb(102, 187, 106)),
                     )
@@ -5071,7 +5062,7 @@ impl UoFiddlerApp {
                     snd.play();
                 }
             } else {
-                ui.label("Nenhum som selecionado.");
+                ui.label(t!("sounds.none"));
             }
         });
     }
@@ -5094,13 +5085,15 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 8.0;
                     let before = self.map_mode;
+                    let (mode_iso, mode_radar, mode_overview) =
+                        (t!("map.mode.isometric"), t!("map.mode.radar"), t!("map.mode.overview"));
                     widgets::segmented(
                         ui,
                         &mut self.map_mode,
                         &[
-                            (MapMode::Live, "Isometric"),
-                            (MapMode::Radar, "Radar"),
-                            (MapMode::Overview, "Overview"),
+                            (MapMode::Live, mode_iso.as_str()),
+                            (MapMode::Radar, mode_radar.as_str()),
+                            (MapMode::Overview, mode_overview.as_str()),
                         ],
                         260.0,
                     );
@@ -5122,7 +5115,7 @@ impl UoFiddlerApp {
                     // Where to go: the facet's presets, or x, y.
                     ui.label(egui::RichText::new(icon::MAP_PIN).font(style::icon()));
                     egui::ComboBox::from_id_salt("map-preset")
-                        .selected_text("Go to…")
+                        .selected_text(t!("map.goto"))
                         .width(150.0)
                         .show_ui(ui, |ui| {
                             for (m, name, x, y) in PRESET_LOCATIONS {
@@ -5143,23 +5136,23 @@ impl UoFiddlerApp {
                         .changed();
                     ui.separator();
                     // What to show, in one menu.
-                    ui.menu_button(format!("{}  View", icon::EYE), |ui| {
-                        changed |= ui.checkbox(&mut self.map_show_statics, "Statics").changed();
+                    ui.menu_button(t!("map.view", icon = icon::EYE), |ui| {
+                        changed |= ui.checkbox(&mut self.map_show_statics, t!("map.statics")).changed();
                         if self.map_mode == MapMode::Live {
-                            ui.checkbox(&mut self.map_panel.view.cut.hide_roofs, "Hide roofs");
-                            ui.checkbox(&mut self.map_panel.view.show_grid, "Grid");
+                            ui.checkbox(&mut self.map_panel.view.cut.hide_roofs, t!("map.hide_roofs"));
+                            ui.checkbox(&mut self.map_panel.view.show_grid, t!("map.grid"));
                             ui.horizontal(|ui| {
-                                ui.label("Max Z");
+                                ui.label(t!("map.max_z"));
                                 if ui
                                     .add(egui::Slider::new(&mut self.map_max_z, -128..=127))
-                                    .on_hover_text("Hide everything above this height (peel off roofs and upper floors)")
+                                    .on_hover_text(t!("map.max_z.tip"))
                                     .changed()
                                 {
                                     self.map_panel.view.cut.cut = (self.map_max_z < 127).then_some(self.map_max_z);
                                 }
                             });
                             ui.horizontal(|ui| {
-                                ui.label("Zoom");
+                                ui.label(t!("common.zoom"));
                                 ui.add(egui::Slider::new(
                                     &mut self.map_panel.view.zoom,
                                     map::view::MIN_ZOOM..=map::view::MAX_ZOOM,
@@ -5168,7 +5161,7 @@ impl UoFiddlerApp {
                         }
                         if self.map_mode == MapMode::Radar {
                             ui.horizontal(|ui| {
-                                ui.label("Zoom");
+                                ui.label(t!("common.zoom"));
                                 changed |= ui
                                     .add(egui::Slider::new(&mut self.map_zoom, 0.5..=4.0))
                                     .changed();
@@ -5177,7 +5170,7 @@ impl UoFiddlerApp {
                         let (dl, ds) = self.map_mgr.diff_counts(self.map_id);
                         if dl + ds > 0 {
                             changed |= ui
-                                .checkbox(&mut self.map_use_diff, format!("mapdif patches ({} + {} blocks)", dl, ds))
+                                .checkbox(&mut self.map_use_diff, t!("map.diff", dl = dl, ds = ds))
                                 .changed();
                         }
                         if self.map_mode == MapMode::Overview && self.map_id <= 1 {
@@ -5187,7 +5180,7 @@ impl UoFiddlerApp {
                     // The editor, on the right.
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let edit = egui::Button::new(
-                            egui::RichText::new(format!("{}  Edit map", icon::PENCIL_SIMPLE))
+                            egui::RichText::new(t!("map.edit", icon = icon::PENCIL_SIMPLE))
                                 .strong()
                                 .color(style::color::BG),
                         )
@@ -5195,7 +5188,7 @@ impl UoFiddlerApp {
                         .min_size(egui::vec2(0.0, 28.0));
                         if ui
                             .add_enabled(self.map_mgr.has_map(self.map_id), edit)
-                            .on_hover_text("Open the map editor (F11): paint, stamp, shape the ground, then save into the client files")
+                            .on_hover_text(t!("map.edit.tip"))
                             .clicked()
                         {
                             self.map_mode = MapMode::Live;
@@ -5203,7 +5196,7 @@ impl UoFiddlerApp {
                         }
                         let pending = self.map_panel.edits[self.map_id].len();
                         if pending > 0 {
-                            widgets::chip(ui, &format!("{} tiles not saved", pending), style::color::ACCENT);
+                            widgets::chip(ui, &t!("map.unsaved", n = pending), style::color::ACCENT);
                         }
                     });
                 });
@@ -5297,7 +5290,7 @@ impl UoFiddlerApp {
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
-                    format!("Carregando mapa {}...", self.map_id),
+                    t!("map.loading", id = self.map_id),
                     egui::FontId::proportional(16.0),
                     egui::Color32::from_rgb(180, 200, 190),
                 );
@@ -5312,7 +5305,7 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("Controle de Multis");
+                ui.heading(t!("multis.heading"));
                 ui.add_space(4.0);
 
                 // Source selector: Clássico vs Enhanced
@@ -5367,7 +5360,7 @@ impl UoFiddlerApp {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     ui.label(
-                        egui::RichText::new(format!("Total: {} multis", filtered.len()))
+                        egui::RichText::new(t!("multis.total", n = filtered.len()))
                             .color(egui::Color32::GRAY),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -5397,7 +5390,7 @@ impl UoFiddlerApp {
                             let id = filtered[idx];
                             let name = self
                                 .get_multi_name(id)
-                                .unwrap_or_else(|| "Estrutura".to_string());
+                                .unwrap_or_else(|| t!("multis.structure"));
                             let label = format!("0x{:04X} ({}) - {}", id, id, name);
                             let is_sel = self.multi_id == id;
                             let resp = ui.selectable_label(is_sel, label);
@@ -5443,20 +5436,20 @@ impl UoFiddlerApp {
                     ui.add_space(10.0);
                     ui.label(format!("{:.2}", self.multi_zoom));
                     ui.label(
-                        egui::RichText::new("Zoom")
+                        egui::RichText::new(t!("common.zoom"))
                             .size(11.0)
                             .color(egui::Color32::GRAY),
                     );
                     if ui
                         .button("1x")
-                        .on_hover_text("Redefinir Zoom para 100%")
+                        .on_hover_text(t!("multis.zoom_reset.tip"))
                         .clicked()
                     {
                         self.multi_zoom = 1.0;
                     }
                     if ui
                         .button("⟲")
-                        .on_hover_text("Centralizar Posição")
+                        .on_hover_text(t!("multis.center.tip"))
                         .clicked()
                     {
                         self.multi_pan = egui::Vec2::ZERO;
@@ -5465,44 +5458,44 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            let multi_name = self.get_multi_name(self.multi_id).unwrap_or_else(|| "Estrutura Multi".to_string());
+            let multi_name = self.get_multi_name(self.multi_id).unwrap_or_else(|| t!("multis.structure_multi"));
             let comp_count = self.current_multi_structure.as_ref().map(|s| s.components.len()).unwrap_or(0);
 
             ui.horizontal(|ui| {
-                ui.heading(format!("Multi 0x{:04X} ({}) - {}", self.multi_id, self.multi_id, multi_name));
-                ui.label(egui::RichText::new(format!("({} componentes)", comp_count)).color(egui::Color32::LIGHT_GRAY));
+                ui.heading(t!("multis.title", id = format!("{:04X}", self.multi_id), dec = self.multi_id, name = multi_name));
+                ui.label(egui::RichText::new(t!("multis.components_count", n = comp_count)).color(egui::Color32::LIGHT_GRAY));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("⟲ Centralizar").clicked() {
+                    if ui.button(t!("multis.center")).clicked() {
                         self.multi_pan = egui::Vec2::ZERO;
                     }
                 });
             });
 
             ui.horizontal(|ui| {
-                ui.label("Corte Z (Andar):");
-                if ui.add(egui::Slider::new(&mut self.multi_max_z, -20..=120).text("Z máx")).changed() {
+                ui.label(t!("multis.cut_z"));
+                if ui.add(egui::Slider::new(&mut self.multi_max_z, -20..=120).text(t!("multis.max_z"))).changed() {
                     self.render_current_multi(ctx);
                 }
-                if ui.button("Todos").clicked() {
+                if ui.button(t!("multis.all")).clicked() {
                     self.multi_max_z = 120;
                     self.render_current_multi(ctx);
                 }
-                if ui.button("Térreo").clicked() {
+                if ui.button(t!("multis.ground")).clicked() {
                     self.multi_max_z = 20;
                     self.render_current_multi(ctx);
                 }
-                if ui.button("1º Andar").clicked() {
+                if ui.button(t!("multis.floor1")).clicked() {
                     self.multi_max_z = 40;
                     self.render_current_multi(ctx);
                 }
-                if ui.button("⚡ Recarregar").clicked() {
+                if ui.button(t!("multis.reload")).clicked() {
                     self.render_current_multi(ctx);
                 }
             });
 
             ui.separator();
 
-            egui::CollapsingHeader::new(format!("📋 Lista de Componentes ({})", comp_count))
+            egui::CollapsingHeader::new(t!("multis.components", n = comp_count))
                 .default_open(false)
                 .show(ui, |ui| {
                     if let Some(structure) = &self.current_multi_structure {
@@ -5513,9 +5506,15 @@ impl UoFiddlerApp {
                             .show_rows(ui, 18.0, total_comp, |ui, row_range| {
                                 for idx in row_range {
                                     let c = &structure.components[idx];
-                                    ui.label(format!(
-                                        "#{:03}: Item 0x{:04X} ({}) | Offset: ({}, {}, {}) | Flags: 0x{:04X}",
-                                        idx, c.item_id, c.item_id, c.offset_x, c.offset_y, c.offset_z, c.flags
+                                    ui.label(t!(
+                                        "multis.component",
+                                        idx = format!("{:03}", idx),
+                                        id = format!("{:04X}", c.item_id),
+                                        dec = c.item_id,
+                                        x = c.offset_x,
+                                        y = c.offset_y,
+                                        z = c.offset_z,
+                                        flags = format!("{:04X}", c.flags)
                                     ));
                                 }
                             });
@@ -5555,7 +5554,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Selecione um Multi para renderização instantânea",
+                        t!("multis.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
