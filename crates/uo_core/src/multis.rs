@@ -429,7 +429,7 @@ pub fn load_uop_multis<P: AsRef<std::path::Path>>(
                 entry_bytes[18],
                 entry_bytes[19],
             ]) as usize;
-            let comp_flag = i16::from_le_bytes([entry_bytes[24], entry_bytes[25]]);
+            let comp_flag = i16::from_le_bytes([entry_bytes[32], entry_bytes[33]]);
 
             if offset != 0 && compressed_len != 0 {
                 entries.push(EntryRef {
