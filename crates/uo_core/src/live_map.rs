@@ -199,14 +199,28 @@ impl LiveRenderer {
                 if opt.show_statics {
                     if let Some(raw) = c.map.static_block(map_id, (x / 8) as u32, (y / 8) as u32, opt.use_diff) {
                         let (lx, ly) = ((x % 8) as u8, (y % 8) as u8);
-                        let mut items: Vec<(i32, u16, usize)> = raw
+                        // Draw order inside a cell, like the client: by z, then flat/background things
+                        // (floors, decoration: height 0) before tall ones (walls), then file order.
+                        const BACKGROUND: u64 = 1 << 0;
+                        let mut items: Vec<((i32, u8, u8, usize), u16)> = raw
                             .chunks_exact(7)
                             .enumerate()
                             .filter(|(_, r)| (r[2] & 7) == lx && (r[3] & 7) == ly)
-                            .map(|(n, r)| (r[4] as i8 as i32, u16::from_le_bytes([r[0], r[1]]), n))
-                            .filter(|(sz, _, _)| *sz <= opt.max_z)
+                            .map(|(n, r)| {
+                                let id = u16::from_le_bytes([r[0], r[1]]);
+                                let sz = r[4] as i8 as i32;
+                                let (flat, bg) = c
+                                    .tiledata
+                                    .and_then(|t| t.item_tiles.get(id as usize))
+                                    .map_or((1, 1), |t| {
+                                        (if t.height == 0 { 0 } else { 1 }, if t.flags & BACKGROUND != 0 { 0 } else { 1 })
+                                    });
+                                ((sz, flat, bg, n), id)
+                            })
+                            .filter(|(k, _)| k.0 <= opt.max_z)
                             .collect();
-                        items.sort_by_key(|&(sz, _, n)| (sz, n));
+                        items.sort_by_key(|&(k, _)| k);
+                        let items: Vec<(i32, u16, usize)> = items.into_iter().map(|(k, id)| (k.0, id, k.3)).collect();
                         for (sz, id, _) in items {
                             if let Some(a) = self.static_art(c.art, id) {
                                 let (w, h) = (a.width as i32, a.height as i32);
