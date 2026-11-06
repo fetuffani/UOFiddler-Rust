@@ -17,6 +17,9 @@ mod packets_tab;
 mod paperdoll_tab;
 
 /// All 38 bitfield flags defined in Ultima Online TileData
+/// Symbol-only button label (not translatable text).
+const ICON_CLEAR: &str = "✖";
+
 pub const TILEDATA_FLAGS: [(&str, u64); 38] = [
     ("Background", 1 << 0),
     ("Weapon", 1 << 1),
@@ -200,6 +203,11 @@ impl TabCategory {
 }
 
 /// Draws an authentic transparent checkerboard background (Aseprite / Photoshop style)
+/// Display name of an animation action: human actions are technical names, the others are locale keys.
+pub fn action_display_name(anim_type: u8, name: &str) -> String {
+    if anim_type == 3 { name.to_string() } else { t!(name) }
+}
+
 pub fn draw_checkerboard(painter: &egui::Painter, rect: egui::Rect, cell_size: f32) {
     let c1 = egui::Color32::from_rgb(18, 19, 24);
     let c2 = egui::Color32::from_rgb(28, 30, 38);
@@ -306,52 +314,53 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
     ctx.set_style(style);
 }
 
+/// Action tables: the text is a locale key (`anim.action.<kind>.<n>`), except ACTIONS_HUMAN (technical names).
 pub const ACTIONS_MONSTER: [(u32, &str); 17] = [
-    (0, "Walk"),
-    (1, "Stand / Idle"),
-    (2, "Die 1"),
-    (3, "Die 2"),
-    (4, "Attack 1"),
-    (5, "Attack 2"),
-    (6, "Attack 3"),
-    (7, "Cast / Special 1"),
-    (8, "Cast / Special 2"),
-    (9, "Get Hit"),
-    (10, "Block Right"),
-    (11, "Block Left"),
-    (12, "Idle"),
-    (13, "Fidget"),
-    (14, "Fly"),
-    (15, "Take Off"),
-    (16, "Get Hit In Air"),
+    (0, "anim.action.monster.0"),
+    (1, "anim.action.monster.1"),
+    (2, "anim.action.monster.2"),
+    (3, "anim.action.monster.3"),
+    (4, "anim.action.monster.4"),
+    (5, "anim.action.monster.5"),
+    (6, "anim.action.monster.6"),
+    (7, "anim.action.monster.7"),
+    (8, "anim.action.monster.8"),
+    (9, "anim.action.monster.9"),
+    (10, "anim.action.monster.10"),
+    (11, "anim.action.monster.11"),
+    (12, "anim.action.monster.12"),
+    (13, "anim.action.monster.13"),
+    (14, "anim.action.monster.14"),
+    (15, "anim.action.monster.15"),
+    (16, "anim.action.monster.16"),
 ];
 
 pub const ACTIONS_ANIMAL: [(u32, &str); 13] = [
-    (0, "Walk"),
-    (1, "Run"),
-    (2, "Idle 1"),
-    (3, "Eat"),
-    (4, "Alert"),
-    (5, "Attack 1"),
-    (6, "Attack 2"),
-    (7, "Get Hit"),
-    (8, "Die 1"),
-    (9, "Idle 2"),
-    (10, "Fidget"),
-    (11, "Lie Down"),
-    (12, "Die 2"),
+    (0, "anim.action.animal.0"),
+    (1, "anim.action.animal.1"),
+    (2, "anim.action.animal.2"),
+    (3, "anim.action.animal.3"),
+    (4, "anim.action.animal.4"),
+    (5, "anim.action.animal.5"),
+    (6, "anim.action.animal.6"),
+    (7, "anim.action.animal.7"),
+    (8, "anim.action.animal.8"),
+    (9, "anim.action.animal.9"),
+    (10, "anim.action.animal.10"),
+    (11, "anim.action.animal.11"),
+    (12, "anim.action.animal.12"),
 ];
 
 pub const ACTIONS_SEA: [(u32, &str); 9] = [
-    (0, "Walk"),
-    (1, "Run"),
-    (2, "Idle 1"),
-    (3, "Idle 2"),
-    (4, "Fidget"),
-    (5, "Attack 1"),
-    (6, "Attack 2"),
-    (7, "Get Hit"),
-    (8, "Die 1"),
+    (0, "anim.action.sea.0"),
+    (1, "anim.action.sea.1"),
+    (2, "anim.action.sea.2"),
+    (3, "anim.action.sea.3"),
+    (4, "anim.action.sea.4"),
+    (5, "anim.action.sea.5"),
+    (6, "anim.action.sea.6"),
+    (7, "anim.action.sea.7"),
+    (8, "anim.action.sea.8"),
 ];
 
 pub const ACTIONS_HUMAN: [(u32, &str); 37] = [
@@ -417,15 +426,16 @@ pub const POPULAR_BODIES: [(u32, &str); 20] = [
     (79, "79 - Lich"),
 ];
 
+/// Text is a locale key (`anim.dir.<n>`).
 pub const DIRECTIONS: [(u8, &str); 8] = [
-    (0, "0 - South (Sul)"),
-    (1, "1 - South-West (Sudoeste)"),
-    (2, "2 - West (Oeste)"),
-    (3, "3 - North-West (Noroeste)"),
-    (4, "4 - North (Norte)"),
-    (5, "5 - North-East (Nordeste - Espelhado)"),
-    (6, "6 - East (Leste - Espelhado)"),
-    (7, "7 - South-East (Sudeste - Espelhado)"),
+    (0, "anim.dir.0"),
+    (1, "anim.dir.1"),
+    (2, "anim.dir.2"),
+    (3, "anim.dir.3"),
+    (4, "anim.dir.4"),
+    (5, "anim.dir.5"),
+    (6, "anim.dir.6"),
+    (7, "anim.dir.7"),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -499,7 +509,7 @@ pub struct UoFiddlerApp {
     splash_active: bool,
     splash_start: Instant,
     splash_progress: f32,
-    splash_msg: &'static str,
+    splash_msg: &'static str, // locale key
 
     // Settings dialog state
     show_settings_dialog: bool,
@@ -719,7 +729,7 @@ impl Default for UoFiddlerApp {
             splash_active: true,
             splash_start: Instant::now(),
             splash_progress: 0.0,
-            splash_msg: "Verificando diretório do Ultima Online...",
+            splash_msg: "splash.start",
             show_settings_dialog: false,
             show_about_dialog: false,
             settings_classic_input: classic_str,
@@ -846,7 +856,7 @@ impl Default for UoFiddlerApp {
             gamedata_selected_idx: 0,
             gamedata_row_search: String::new(),
             gamedata_view_raw: false,
-            status_message: "Iniciando UOFiddler...".to_string(),
+            status_message: t!("status.starting"),
         };
 
         app.refresh_valid_multis();
@@ -1278,14 +1288,14 @@ impl UoFiddlerApp {
         }
 
         let dt = t0.elapsed();
-        self.status_message = format!(
-            "Arquivos carregados em {:.2} ms ⚡ (Art: {}, TileData: {}, Gumps: {}, Cliloc: {}, Sounds: {})",
-            dt.as_secs_f64() * 1000.0,
-            self.art_index.is_some(),
-            self.tiledata.is_some(),
-            self.valid_gumps.len(),
-            self.cliloc.as_ref().map(|c| c.entries.len()).unwrap_or(0),
-            self.valid_sounds.len(),
+        self.status_message = t!(
+            "status.files_loaded",
+            ms = format!("{:.2}", dt.as_secs_f64() * 1000.0),
+            art = self.art_index.is_some(),
+            tiledata = self.tiledata.is_some(),
+            gumps = self.valid_gumps.len(),
+            cliloc = self.cliloc.as_ref().map(|c| c.entries.len()).unwrap_or(0),
+            sounds = self.valid_sounds.len(),
         );
     }
 
@@ -1475,19 +1485,16 @@ impl UoFiddlerApp {
                 let count = frames.len();
                 self.anim_frames = frames;
                 self.update_animation_texture(ctx);
-                self.status_message = format!(
-                    "Animação Body {} Action {} carregada: {} quadros em {:.2} ms ⚡",
-                    self.anim_body,
-                    self.anim_action,
-                    count,
-                    t0.elapsed().as_secs_f64() * 1000.0
+                self.status_message = t!(
+                    "status.anim_loaded",
+                    body = self.anim_body,
+                    action = self.anim_action,
+                    frames = count,
+                    ms = format!("{:.2}", t0.elapsed().as_secs_f64() * 1000.0)
                 );
             }
             None => {
-                self.status_message = format!(
-                    "Nenhum quadro encontrado para Body {} Action {}.",
-                    self.anim_body, self.anim_action
-                );
+                self.status_message = t!("status.anim_none", body = self.anim_body, action = self.anim_action);
             }
         }
     }
@@ -1509,7 +1516,7 @@ impl UoFiddlerApp {
             self.uop_multis.get(&self.multi_id).cloned()
         } else {
             let Some(multi_idx) = &self.multi_index else {
-                self.status_message = "Arquivo multi.mul não carregado.".to_string();
+                self.status_message = t!("status.multi_mul_missing");
                 self.current_multi_structure = None;
                 self.multi_texture = None;
                 return;
@@ -1522,10 +1529,8 @@ impl UoFiddlerApp {
         };
 
         let Some(structure) = structure else {
-            self.status_message = format!(
-                "Multi 0x{:04X} ({}) não possui dados.",
-                self.multi_id, self.multi_id
-            );
+            self.status_message =
+                t!("status.multi_nodata", id = format!("{:04X}", self.multi_id), dec = self.multi_id);
             self.current_multi_structure = None;
             self.multi_texture = None;
             return;
@@ -1552,19 +1557,19 @@ impl UoFiddlerApp {
                 Some(ctx.load_texture("multi_render", color_image, egui::TextureOptions::NEAREST));
             let dt = t0.elapsed();
             let source_name = if self.multi_mode_enhanced {
-                "Enhanced UOP"
+                t!("status.multi_source.uop")
             } else {
-                "Clássico"
+                t!("status.multi_source.classic")
             };
-            self.status_message = format!(
-                "Multi 0x{:04X} ({}) [{}]: {} componentes, {}x{} renderizado em {:.2} ms ⚡",
-                self.multi_id,
-                self.multi_id,
-                source_name,
-                comp_count,
-                bmp.width,
-                bmp.height,
-                dt.as_secs_f64() * 1000.0
+            self.status_message = t!(
+                "status.multi_rendered",
+                id = format!("{:04X}", self.multi_id),
+                dec = self.multi_id,
+                source = source_name,
+                components = comp_count,
+                w = bmp.width,
+                h = bmp.height,
+                ms = format!("{:.2}", dt.as_secs_f64() * 1000.0)
             );
         } else {
             self.multi_texture = None;
@@ -1803,7 +1808,7 @@ impl UoFiddlerApp {
             }
         }
         let Some((_, _, tex, iw, ih)) = &self.overview_tex else {
-            ui.label("Arquivo facet não encontrado para esta faceta.");
+            ui.label(t!("map.facet_missing"));
             return;
         };
         let (iw, ih) = (*iw as f32, *ih as f32);
@@ -2146,16 +2151,16 @@ impl eframe::App for UoFiddlerApp {
             let elapsed = self.splash_start.elapsed().as_secs_f32();
             if elapsed < 0.6 {
                 self.splash_progress = elapsed / 2.0;
-                self.splash_msg = "Descobrindo arquivos do cliente UO...";
+                self.splash_msg = "splash.discover";
             } else if elapsed < 1.2 {
                 self.splash_progress = elapsed / 2.0;
-                self.splash_msg = "Mapeando FileIndex e arquivos UOP na memória...";
+                self.splash_msg = "splash.map";
             } else if elapsed < 1.8 {
                 self.splash_progress = elapsed / 2.0;
-                self.splash_msg = "Inicializando TileData, Hues e Renderizadores...";
+                self.splash_msg = "splash.init";
             } else {
                 self.splash_progress = 1.0;
-                self.splash_msg = "Pronto! Iniciando interface gráfica...";
+                self.splash_msg = "splash.ready";
                 self.reload_all_client_files();
                 self.load_item_preview(ctx);
                 self.load_land_preview(ctx);
@@ -2183,9 +2188,7 @@ impl eframe::App for UoFiddlerApp {
                                 .strong(),
                         );
                         ui.label(
-                            egui::RichText::new(
-                                "Ultima Online Client Viewer & Editor (100% Rust Nativo)",
-                            )
+                            egui::RichText::new(t!("splash.subtitle"))
                             .italics()
                             .color(egui::Color32::LIGHT_GRAY),
                         );
@@ -2198,7 +2201,7 @@ impl eframe::App for UoFiddlerApp {
 
                         ui.add_space(14.0);
                         ui.label(
-                            egui::RichText::new(self.splash_msg)
+                            egui::RichText::new(t!(self.splash_msg))
                                 .monospace()
                                 .color(egui::Color32::from_rgb(180, 200, 220)),
                         );
@@ -2206,7 +2209,7 @@ impl eframe::App for UoFiddlerApp {
                         if let Some(dir) = &self.file_manager.uo_dir {
                             ui.add_space(8.0);
                             ui.label(
-                                egui::RichText::new(format!("Pasta: {}", dir.display()))
+                                egui::RichText::new(t!("splash.folder", path = dir.display()))
                                     .size(11.0)
                                     .color(egui::Color32::GRAY),
                             );
@@ -2240,14 +2243,14 @@ impl eframe::App for UoFiddlerApp {
                     // Client Path Badges
                     if self.file_manager.uo_dir.is_some() {
                         ui.label(
-                            egui::RichText::new("● Classic 2D")
+                            egui::RichText::new(t!("top.badge.classic"))
                                 .size(11.0)
                                 .color(egui::Color32::from_rgb(52, 211, 153)),
                         );
                     }
                     if self.file_manager.uo_ec_dir.is_some() {
                         ui.label(
-                            egui::RichText::new("● Enhanced 3D")
+                            egui::RichText::new(t!("top.badge.enhanced"))
                                 .size(11.0)
                                 .color(egui::Color32::from_rgb(96, 165, 250)),
                         );
@@ -2421,13 +2424,13 @@ impl eframe::App for UoFiddlerApp {
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
-                            egui::RichText::new("UOFiddler • Rust 100% Nativo ⚡")
+                            egui::RichText::new(t!("status.footer"))
                                 .color(egui::Color32::from_rgb(129, 140, 248))
                                 .small(),
                         );
                         ui.separator();
                         ui.label(
-                            egui::RichText::new("[↑↓ / ←→] Navegar • [Scroll] Zoom • [Home/End] Início/Fim")
+                            egui::RichText::new(t!("status.keys"))
                                 .color(egui::Color32::from_rgb(148, 163, 184))
                                 .small(),
                         );
@@ -2622,19 +2625,19 @@ impl eframe::App for UoFiddlerApp {
 
         // ------------------ 6. ABOUT DIALOG ------------------
         if self.show_about_dialog {
-            egui::Window::new("About UOFiddler")
+            egui::Window::new(t!("about.title"))
                 .resizable(false)
                 .collapsible(false)
                 .min_width(450.0)
                 .show(ctx, |ui| {
-                    ui.heading("⚔ UOFiddler v1.0.0");
-                    ui.label("Reescrita completa em Rust nativo de altíssima performance para Linux e multiplataforma.");
-                    ui.label("Zero dores de cabeça com .NET, Wine ou lentidão do Python.");
+                    ui.heading(t!("about.heading"));
+                    ui.label(t!("about.line1"));
+                    ui.label(t!("about.line2"));
                     ui.add_space(8.0);
-                    ui.label("• Autor: Mauricio Nunes + Gemini");
-                    ui.label("• Renderização direta em GPU via eframe / egui.");
+                    ui.label(t!("about.author"));
+                    ui.label(t!("about.render"));
                     ui.add_space(12.0);
-                    if ui.button("Fechar").clicked() {
+                    if ui.button(t!("common.close")).clicked() {
                         self.show_about_dialog = false;
                     }
                 });
@@ -2668,24 +2671,24 @@ impl UoFiddlerApp {
             .min_width(260.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("Itens Estáticos");
+                    ui.heading(t!("items.heading"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.selectable_value(&mut self.item_view_mode, true, "📄 List");
-                        ui.selectable_value(&mut self.item_view_mode, false, "🔲 Grid");
+                        ui.selectable_value(&mut self.item_view_mode, true, &t!("common.view_list"));
+                        ui.selectable_value(&mut self.item_view_mode, false, &t!("common.view_grid"));
                     });
                 });
 
                 // Client / Source selector
                 ui.horizontal(|ui| {
                     let classic_btn =
-                        ui.selectable_label(!self.item_mode_enhanced, "📜 Clássico (2D)");
+                        ui.selectable_label(!self.item_mode_enhanced, &t!("items.mode.classic"));
                     if classic_btn.clicked() && self.item_mode_enhanced {
                         self.item_mode_enhanced = false;
                         self.item_thumb_cache.clear();
                         self.load_item_preview(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.item_mode_enhanced, "✨ Enhanced (3D UOP)");
+                        ui.selectable_label(self.item_mode_enhanced, &t!("items.mode.enhanced"));
                     if enhanced_btn.clicked() && !self.item_mode_enhanced {
                         self.item_mode_enhanced = true;
                         self.item_thumb_cache.clear();
@@ -2700,22 +2703,22 @@ impl UoFiddlerApp {
                     .unwrap_or(0x10000);
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.item_search);
-                    if !self.item_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.item_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.item_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.item_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.item_jump_input) {
                             if id < total_items {
@@ -2723,7 +2726,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_item_preview(ctx);
                                 self.status_message =
-                                    format!("Navegado para Item 0x{:04X} ({})", id, id);
+                                    t!("items.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -2948,17 +2951,15 @@ impl UoFiddlerApp {
             .min_width(280.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("📋 Inspetor TileData");
+                    ui.heading(t!("common.inspector"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui
-                            .button("💾 Aplicar")
-                            .on_hover_text("Salvar modificações deste item na memória")
+                            .button(t!("common.apply"))
+                            .on_hover_text(t!("items.apply.tip"))
                             .clicked()
                         {
-                            self.status_message = format!(
-                                "✓ Propriedades do Item 0x{:04X} salvas na memória!",
-                                self.item_selected
-                            );
+                            self.status_message =
+                                t!("items.applied", id = format!("{:04X}", self.item_selected));
                         }
                     });
                 });
@@ -2970,34 +2971,34 @@ impl UoFiddlerApp {
                             .num_columns(2)
                             .spacing([12.0, 6.0])
                             .show(ui, |ui| {
-                                ui.label("Nome:");
+                                ui.label(t!("common.name"));
                                 ui.text_edit_singleline(&mut item_info.name);
                                 ui.end_row();
 
-                                ui.label("Peso:");
+                                ui.label(t!("items.weight"));
                                 ui.add(egui::DragValue::new(&mut item_info.weight).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Altura:");
+                                ui.label(t!("items.height"));
                                 ui.add(egui::DragValue::new(&mut item_info.height).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Anim ID:");
+                                ui.label(t!("items.animid"));
                                 ui.horizontal(|ui| {
                                     ui.add(egui::DragValue::new(&mut item_info.anim_id).range(0..=65535));
                                     ui.label(format!("(0x{:04X})", item_info.anim_id));
                                 });
                                 ui.end_row();
 
-                                ui.label("Qualidade / Camada:");
+                                ui.label(t!("items.quality"));
                                 ui.add(egui::DragValue::new(&mut item_info.quality).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Hue Padrão:");
+                                ui.label(t!("items.hue"));
                                 ui.add(egui::DragValue::new(&mut item_info.hue).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Flags Hex:");
+                                ui.label(t!("items.flags_hex"));
                                 ui.label(
                                     egui::RichText::new(format!("0x{:016X}", item_info.flags))
                                         .monospace()
@@ -3008,7 +3009,7 @@ impl UoFiddlerApp {
 
                         ui.add_space(8.0);
                         ui.separator();
-                        ui.label(egui::RichText::new("Flags (Bitfield 38):").strong());
+                        ui.label(egui::RichText::new(t!("items.flags_bitfield")).strong());
 
                         egui::ScrollArea::vertical()
                             .auto_shrink([false, false])
@@ -3034,41 +3035,42 @@ impl UoFiddlerApp {
                             });
                     }
                 } else {
-                    ui.label("TileData não carregado.");
+                    ui.label(t!("common.tiledata_missing"));
                 }
             });
 
         // 3. Central Panel: Art Canvas Preview & Zoom
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Item 0x{:04X} ({})",
-                    self.item_selected, self.item_selected
+                ui.heading(t!(
+                    "items.title",
+                    id = format!("{:04X}", self.item_selected),
+                    dec = self.item_selected
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.item_selected);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.item_selected);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
-                    .on_hover_text("Salvar imagem do item na pasta 'exported_art/'")
+                    .button(t!("common.export_png"))
+                    .on_hover_text(t!("items.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_item_bitmap(self.item_selected) {
@@ -3079,26 +3081,26 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
                 }
 
                 ui.separator();
-                ui.label("Testar Hue:");
+                ui.label(t!("items.test_hue"));
                 if ui
                     .add(egui::DragValue::new(&mut self.item_hue).range(0..=3000))
                     .changed()
@@ -3155,7 +3157,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhuma arte de item disponível",
+                        t!("items.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -3173,13 +3175,13 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.item_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.item_zoom = 2.0;
                     }
-                    if ui.button("3x").on_hover_text("Zoom 300%").clicked() {
+                    if ui.button("3x").on_hover_text(t!("common.zoom_pct", n = 300)).clicked() {
                         self.item_zoom = 3.0;
                     }
                 });
@@ -3195,24 +3197,24 @@ impl UoFiddlerApp {
             .min_width(260.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("Terrenos (Land Tiles)");
+                    ui.heading(t!("land.heading"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.selectable_value(&mut self.land_view_mode, true, "📄 List");
-                        ui.selectable_value(&mut self.land_view_mode, false, "🔲 Grid");
+                        ui.selectable_value(&mut self.land_view_mode, true, &t!("common.view_list"));
+                        ui.selectable_value(&mut self.land_view_mode, false, &t!("common.view_grid"));
                     });
                 });
 
                 // Client / Source selector
                 ui.horizontal(|ui| {
                     let classic_btn =
-                        ui.selectable_label(!self.land_mode_enhanced, "📜 Clássico (2D Diamond)");
+                        ui.selectable_label(!self.land_mode_enhanced, &t!("land.mode.classic"));
                     if classic_btn.clicked() && self.land_mode_enhanced {
                         self.land_mode_enhanced = false;
                         self.land_thumb_cache.clear();
                         self.load_land_preview(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.land_mode_enhanced, "✨ Enhanced (3D Textura)");
+                        ui.selectable_label(self.land_mode_enhanced, &t!("land.mode.enhanced"));
                     if enhanced_btn.clicked() && !self.land_mode_enhanced {
                         self.land_mode_enhanced = true;
                         self.land_thumb_cache.clear();
@@ -3227,22 +3229,22 @@ impl UoFiddlerApp {
                     .unwrap_or(0x4000);
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.land_search);
-                    if !self.land_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.land_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.land_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.land_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.land_jump_input) {
                             if id < total_land {
@@ -3250,7 +3252,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_land_preview(ctx);
                                 self.status_message =
-                                    format!("Navegado para Terreno 0x{:04X} ({})", id, id);
+                                    t!("land.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -3473,17 +3475,15 @@ impl UoFiddlerApp {
             .min_width(280.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("📋 Inspetor TileData");
+                    ui.heading(t!("common.inspector"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui
-                            .button("💾 Aplicar")
-                            .on_hover_text("Salvar modificações deste terreno na memória")
+                            .button(t!("common.apply"))
+                            .on_hover_text(t!("land.apply.tip"))
                             .clicked()
                         {
-                            self.status_message = format!(
-                                "✓ Propriedades do Terreno 0x{:04X} salvas na memória!",
-                                self.land_selected
-                            );
+                            self.status_message =
+                                t!("land.applied", id = format!("{:04X}", self.land_selected));
                         }
                     });
                 });
@@ -3498,18 +3498,18 @@ impl UoFiddlerApp {
                                     .num_columns(2)
                                     .spacing([8.0, 6.0])
                                     .show(ui, |ui| {
-                                        ui.label(egui::RichText::new("Nome:").strong());
+                                        ui.label(egui::RichText::new(t!("common.name")).strong());
                                         ui.text_edit_singleline(&mut land_info.name);
                                         ui.end_row();
 
-                                        ui.label("Texture ID:");
+                                        ui.label(t!("land.texture_id"));
                                         ui.horizontal(|ui| {
                                             ui.add(egui::DragValue::new(&mut land_info.texture_id));
                                             ui.label(format!("(0x{:04X})", land_info.texture_id));
                                         });
                                         ui.end_row();
 
-                                        ui.label("Flags (Hex):");
+                                        ui.label(t!("land.flags_hex"));
                                         let mut flags_hex = format!("0x{:016X}", land_info.flags);
                                         if ui
                                             .add(
@@ -3530,7 +3530,7 @@ impl UoFiddlerApp {
 
                                 ui.add_space(8.0);
                                 ui.separator();
-                                ui.label(egui::RichText::new("Flags (Bitfield):").strong());
+                                ui.label(egui::RichText::new(t!("land.flags_bitfield")).strong());
                                 ui.add_space(4.0);
 
                                 // 2 columns for 38 flags
@@ -3555,44 +3555,45 @@ impl UoFiddlerApp {
                                     });
                             });
                     } else {
-                        ui.label("Terreno não encontrado no TileData.");
+                        ui.label(t!("land.not_in_tiledata"));
                     }
                 } else {
-                    ui.label("TileData não carregado.");
+                    ui.label(t!("common.tiledata_missing"));
                 }
             });
 
         // 3. Central Panel: Land Tile Graphic Preview
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Terreno 0x{:04X} ({})",
-                    self.land_selected, self.land_selected
+                ui.heading(t!(
+                    "land.title",
+                    id = format!("{:04X}", self.land_selected),
+                    dec = self.land_selected
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.land_selected);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.land_selected);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
-                    .on_hover_text("Salvar imagem do terreno na pasta 'exported_art/'")
+                    .button(t!("common.export_png"))
+                    .on_hover_text(t!("land.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_land_bitmap(self.land_selected) {
@@ -3603,19 +3604,19 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
@@ -3670,7 +3671,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhum terreno disponível",
+                        t!("land.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -3688,13 +3689,13 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.land_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.land_zoom = 2.0;
                     }
-                    if ui.button("3x").on_hover_text("Zoom 300%").clicked() {
+                    if ui.button("3x").on_hover_text(t!("common.zoom_pct", n = 300)).clicked() {
                         self.land_zoom = 3.0;
                     }
                 });
@@ -3709,18 +3710,18 @@ impl UoFiddlerApp {
             .default_width(300.0)
             .min_width(220.0)
             .show_inside(ui, |ui| {
-                ui.heading("Gump Art Viewer");
+                ui.heading(t!("gumps.heading"));
 
                 // Source selector
                 ui.horizontal(|ui| {
-                    let classic_btn = ui.selectable_label(!self.gump_mode_enhanced, "📜 Clássico");
+                    let classic_btn = ui.selectable_label(!self.gump_mode_enhanced, &t!("common.classic"));
                     if classic_btn.clicked() && self.gump_mode_enhanced {
                         self.gump_mode_enhanced = false;
                         self.refresh_valid_gumps();
                         self.load_gump(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.gump_mode_enhanced, "✨ Enhanced (EC UOP)");
+                        ui.selectable_label(self.gump_mode_enhanced, &t!("gumps.mode.enhanced"));
                     if enhanced_btn.clicked() && !self.gump_mode_enhanced {
                         self.gump_mode_enhanced = true;
                         self.refresh_valid_gumps();
@@ -3728,28 +3729,25 @@ impl UoFiddlerApp {
                     }
                 });
 
-                ui.label(format!(
-                    "Total de Gumps válidos: {}",
-                    self.valid_gumps.len()
-                ));
+                ui.label(t!("gumps.total", n = self.valid_gumps.len()));
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.gump_search);
-                    if !self.gump_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.gump_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gump_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.gump_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.gump_jump_input) {
                             if self.valid_gumps.contains(&(id as u32)) {
@@ -3757,7 +3755,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_gump(ctx);
                                 self.status_message =
-                                    format!("Navegado para Gump 0x{:04X} ({})", id, id);
+                                    t!("gumps.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -3786,7 +3784,7 @@ impl UoFiddlerApp {
                     .show_rows(ui, row_height, total, |ui, row_range| {
                         for idx in row_range {
                             let gid = filtered[idx];
-                            let label = format!("Gump 0x{:04X} ({})", gid, gid);
+                            let label = t!("gumps.item_label", id = format!("{:04X}", gid), dec = gid);
                             let is_sel = self.gump_id == gid;
                             let resp = ui.selectable_label(is_sel, label);
                             if resp.clicked() {
@@ -3806,47 +3804,50 @@ impl UoFiddlerApp {
                     || self.uop_anim_index.is_action_defined(anim, 0)
                     || (0..40).any(|a| self.is_mul_action_defined(anim, a));
                 ui.horizontal(|ui| {
-                    ui.label(format!("🔗 Animação de equipamento: body {} ({})", anim, if female { "♀" } else { "♂" }));
-                    if has_anim && ui.button("Abrir em Animations").clicked() {
+                    ui.label(t!("gumps.equip_anim", body = anim, gender = if female { "♀" } else { "♂" }));
+                    if has_anim && ui.button(t!("gumps.open_anim")).clicked() {
                         self.anim_body = anim;
                         self.anim_action = self.get_first_defined_action(anim);
                         self.anim_mode_enhanced = false;
                         self.active_tab = UoTab::Animations;
                         self.load_animation(ctx);
                     } else if !has_anim {
-                        ui.weak("(sem animação nos arquivos)");
+                        ui.weak(t!("gumps.no_anim"));
                     }
                 });
             }
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Gump 0x{:04X} ({}) - Dimensões: {} x {} px",
-                    self.gump_id, self.gump_id, self.gump_dim.0, self.gump_dim.1
+                ui.heading(t!(
+                    "gumps.title",
+                    id = format!("{:04X}", self.gump_id),
+                    dec = self.gump_id,
+                    w = self.gump_dim.0,
+                    h = self.gump_dim.1
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.gump_id);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.gump_id);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
-                    .on_hover_text("Salvar imagem do Gump na pasta 'exported_art/'")
+                    .button(t!("common.export_png"))
+                    .on_hover_text(t!("gumps.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_current_gump_bitmap() {
@@ -3857,19 +3858,19 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
@@ -3924,7 +3925,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhum Gump carregado",
+                        t!("gumps.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -3942,10 +3943,10 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.gump_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.gump_zoom = 2.0;
                     }
                 });
@@ -3955,11 +3956,11 @@ impl UoFiddlerApp {
 
     // 5. HUES TAB
     fn render_hues_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Hues Table (3.000 Cores e Gradientes)");
+        ui.heading(t!("hues.heading"));
         ui.horizontal(|ui| {
-            ui.label("Buscar Hue:");
+            ui.label(t!("hues.search"));
             ui.text_edit_singleline(&mut self.hue_search);
-            if ui.button("✖").clicked() {
+            if ui.button(ICON_CLEAR).clicked() {
                 self.hue_search.clear();
             }
         });
@@ -3975,11 +3976,11 @@ impl UoFiddlerApp {
                 .show_rows(ui, row_height, total_hues, |ui, row_range| {
                     for i in row_range {
                         let hue = &hm.hues[i];
-                        let label = format!(
-                            "Hue 0x{:04X} ({}) - {}",
-                            hue.index + 1,
-                            hue.index + 1,
-                            hue.name
+                        let label = t!(
+                            "hues.label",
+                            id = format!("{:04X}", hue.index + 1),
+                            dec = hue.index + 1,
+                            name = hue.name
                         );
                         if !search_lower.is_empty() && !label.to_lowercase().contains(&search_lower)
                         {
@@ -4019,7 +4020,7 @@ impl UoFiddlerApp {
                     }
                 });
         } else {
-            ui.label("hues.mul não encontrado.");
+            ui.label(t!("common.not_found", file = "hues.mul"));
         }
     }
 
@@ -4030,26 +4031,26 @@ impl UoFiddlerApp {
             .default_width(280.0)
             .min_width(220.0)
             .show_inside(ui, |ui| {
-                ui.heading("Textures (texmaps.mul)");
-                ui.label(format!("Total de texturas: {}", self.valid_textures.len()));
+                ui.heading(t!("textures.heading"));
+                ui.label(t!("textures.total", n = self.valid_textures.len()));
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.texture_search);
-                    if !self.texture_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.texture_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.texture_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.texture_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.texture_jump_input) {
                             if self.valid_textures.contains(&(id as u32)) {
@@ -4057,7 +4058,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_texture_preview(ctx);
                                 self.status_message =
-                                    format!("Navegado para Textura 0x{:04X} ({})", id, id);
+                                    t!("textures.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -4098,7 +4099,7 @@ impl UoFiddlerApp {
                         }
                         for idx in row_range {
                             let tid = filtered[idx];
-                            let label = format!("Textura 0x{:04X} ({})", tid, tid);
+                            let label = t!("textures.item_label", id = format!("{:04X}", tid), dec = tid);
                             let is_sel = self.texture_id == tid;
                             let resp = ui.selectable_label(is_sel, label);
                             if resp.clicked() {
@@ -4114,34 +4115,37 @@ impl UoFiddlerApp {
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Textura 0x{:04X} ({}) - Dimensões: {} x {} px",
-                    self.texture_id, self.texture_id, self.texture_dim, self.texture_dim
+                ui.heading(t!(
+                    "textures.title",
+                    id = format!("{:04X}", self.texture_id),
+                    dec = self.texture_id,
+                    w = self.texture_dim,
+                    h = self.texture_dim
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.texture_id);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.texture_id);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
-                    .on_hover_text("Salvar imagem da textura na pasta 'exported_art/'")
+                    .button(t!("common.export_png"))
+                    .on_hover_text(t!("textures.export.tip"))
                     .clicked()
                 {
                     if let Some(bmp) = self.get_current_texture_bitmap() {
@@ -4152,19 +4156,19 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
@@ -4219,7 +4223,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhuma textura carregada",
+                        t!("textures.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -4237,13 +4241,13 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.texture_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.texture_zoom = 2.0;
                     }
-                    if ui.button("3x").on_hover_text("Zoom 300%").clicked() {
+                    if ui.button("3x").on_hover_text(t!("common.zoom_pct", n = 300)).clicked() {
                         self.texture_zoom = 3.0;
                     }
                 });
@@ -4258,14 +4262,14 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("RadarCol Table");
+                ui.heading(t!("radar.heading"));
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(self.radar_is_items, "Items").clicked() {
+                    if ui.selectable_label(self.radar_is_items, t!("radar.items")).clicked() {
                         self.radar_is_items = true;
                         self.load_radar_preview(ctx);
                     }
                     if ui
-                        .selectable_label(!self.radar_is_items, "Land Tiles")
+                        .selectable_label(!self.radar_is_items, t!("radar.land"))
                         .clicked()
                     {
                         self.radar_is_items = false;
@@ -4274,9 +4278,9 @@ impl UoFiddlerApp {
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("Buscar:");
+                    ui.label(t!("common.search_plain"));
                     ui.text_edit_singleline(&mut self.radar_search);
-                    if ui.button("✖").clicked() {
+                    if ui.button(ICON_CLEAR).clicked() {
                         self.radar_search.clear();
                     }
                 });
@@ -4338,9 +4342,10 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Cor de Radar - 0x{:04X} ({})",
-                self.radar_selected, self.radar_selected
+            ui.heading(t!(
+                "radar.title",
+                id = format!("{:04X}", self.radar_selected),
+                dec = self.radar_selected
             ));
             ui.separator();
 
@@ -4369,7 +4374,7 @@ impl UoFiddlerApp {
                     );
 
                     ui.vertical(|ui| {
-                        ui.label(format!("Valor 16-bit: 0x{:04X}", raw_c16));
+                        ui.label(t!("radar.value16", value = format!("{:04X}", raw_c16)));
                         ui.label(format!(
                             "RGBA: rgba({}, {}, {}, {})",
                             col[0], col[1], col[2], col[3]
@@ -4379,7 +4384,7 @@ impl UoFiddlerApp {
             }
 
             ui.add_space(12.0);
-            ui.heading("Arte do Tile (Tamanho Real):");
+            ui.heading(t!("radar.tile_art"));
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 let (rect, _) =
                     ui.allocate_exact_size(egui::vec2(200.0, 200.0), egui::Sense::hover());
@@ -4400,7 +4405,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Sem imagem",
+                        t!("radar.no_image"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -4416,13 +4421,13 @@ impl UoFiddlerApp {
             .default_width(340.0)
             .min_width(280.0)
             .show_inside(ui, |ui| {
-                ui.heading("Controle de Animações");
+                ui.heading(t!("anim.heading"));
                 ui.add_space(4.0);
 
                 // Source selector: Clássico vs Enhanced UOP
                 ui.horizontal(|ui| {
                     let classic_btn =
-                        ui.selectable_label(!self.anim_mode_enhanced, "📜 Clássico (Anim.mul)");
+                        ui.selectable_label(!self.anim_mode_enhanced, &t!("anim.mode.classic"));
                     if classic_btn.clicked() && self.anim_mode_enhanced {
                         self.anim_mode_enhanced = false;
                         if self.anim_category_filter == AnimCategoryFilter::UopModern {
@@ -4449,7 +4454,7 @@ impl UoFiddlerApp {
                         self.load_animation(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.anim_mode_enhanced, "✨ Enhanced (UOP)");
+                        ui.selectable_label(self.anim_mode_enhanced, &t!("common.enhanced_uop"));
                     if enhanced_btn.clicked() && !self.anim_mode_enhanced {
                         self.anim_mode_enhanced = true;
                         let search_lower = self.anim_search.trim().to_lowercase();
@@ -4477,7 +4482,7 @@ impl UoFiddlerApp {
 
                 // Category and search
                 ui.group(|ui| {
-                    ui.label("🔍 Filtrar Criaturas:");
+                    ui.label(t!("anim.filter"));
                     ui.horizontal(|ui| {
                         if ui.text_edit_singleline(&mut self.anim_search).changed() {
                             let search_lower = self.anim_search.trim().to_lowercase();
@@ -4500,60 +4505,60 @@ impl UoFiddlerApp {
                                 }
                             }
                         }
-                        if ui.button("✖").clicked() {
+                        if ui.button(ICON_CLEAR).clicked() {
                             self.anim_search.clear();
                         }
                     });
 
                     ui.horizontal(|ui| {
                         let cat_label = match self.anim_category_filter {
-                            AnimCategoryFilter::All => "Todos",
-                            AnimCategoryFilter::Monsters => "Monstros (0)",
-                            AnimCategoryFilter::SeaMonsters => "Criaturas Marinhas (1)",
-                            AnimCategoryFilter::Animals => "Animais (2)",
-                            AnimCategoryFilter::Humanoids => "Humanos / Elfos (3)",
-                            AnimCategoryFilter::Equipment => "Equipamentos / Armaduras",
-                            AnimCategoryFilter::UopModern => "UOP Modernos (Stygian/TOL)",
+                            AnimCategoryFilter::All => t!("anim.cat.all"),
+                            AnimCategoryFilter::Monsters => t!("anim.cat.monsters"),
+                            AnimCategoryFilter::SeaMonsters => t!("anim.cat.sea"),
+                            AnimCategoryFilter::Animals => t!("anim.cat.animals"),
+                            AnimCategoryFilter::Humanoids => t!("anim.cat.humanoids"),
+                            AnimCategoryFilter::Equipment => t!("anim.cat.equipment"),
+                            AnimCategoryFilter::UopModern => t!("anim.cat.uop"),
                         };
 
                         let old_cat = self.anim_category_filter;
-                        egui::ComboBox::from_label("Categoria")
+                        egui::ComboBox::from_label(t!("anim.category"))
                             .selected_text(cat_label)
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::All,
-                                    "Todos",
+                                    t!("anim.cat.all"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Monsters,
-                                    "Monstros (0)",
+                                    t!("anim.cat.monsters"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::SeaMonsters,
-                                    "Criaturas Marinhas (1)",
+                                    t!("anim.cat.sea"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Animals,
-                                    "Animais (2)",
+                                    t!("anim.cat.animals"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Humanoids,
-                                    "Humanos / Elfos (3)",
+                                    t!("anim.cat.humanoids"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Equipment,
-                                    "Equipamentos / Armaduras",
+                                    t!("anim.cat.equipment"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::UopModern,
-                                    "UOP Modernos (Stygian/TOL)",
+                                    t!("anim.cat.uop"),
                                 );
                             });
 
@@ -4588,13 +4593,13 @@ impl UoFiddlerApp {
                         .anim_body_defs
                         .iter()
                         .find(|d| d.body == self.anim_body)
-                        .map(|d| d.name.as_str())
-                        .unwrap_or("Personalizado");
+                        .map(|d| d.name.clone())
+                        .unwrap_or_else(|| t!("anim.custom"));
 
                     let mut chosen_body: Option<u32> = None;
                     let current_body = self.anim_body;
 
-                    egui::ComboBox::from_label("Corpo / Criatura")
+                    egui::ComboBox::from_label(t!("anim.body_combo"))
                         .selected_text(format!("{} - {}", self.anim_body, current_body_name))
                         .width(220.0)
                         .show_ui(ui, |ui| {
@@ -4618,7 +4623,7 @@ impl UoFiddlerApp {
                                         }
                                         count += 1;
                                         if count >= 600 {
-                                            ui.label("... (refine a busca)");
+                                            ui.label(t!("anim.refine"));
                                             break;
                                         }
                                     }
@@ -4632,7 +4637,7 @@ impl UoFiddlerApp {
                     }
 
                     ui.horizontal(|ui| {
-                        ui.label("Body ID Manual:");
+                        ui.label(t!("anim.body_manual"));
                         if ui
                             .add(egui::DragValue::new(&mut self.anim_body).range(0..=65535))
                             .changed()
@@ -4643,7 +4648,7 @@ impl UoFiddlerApp {
                     });
 
                     ui.separator();
-                    ui.label("Seleção de Ação:");
+                    ui.label(t!("anim.action_select"));
 
                     // Dynamically pick actions based on body type
                     let cur_def = self
@@ -4668,10 +4673,10 @@ impl UoFiddlerApp {
                     let current_action_name = actions
                         .iter()
                         .find(|(act, _)| *act == self.anim_action)
-                        .map(|(_, n)| *n)
-                        .unwrap_or("Ação");
+                        .map(|(_, n)| action_display_name(anim_type, n))
+                        .unwrap_or_else(|| t!("anim.action_default"));
 
-                    egui::ComboBox::from_label("Ação")
+                    egui::ComboBox::from_label(t!("anim.action_combo"))
                         .selected_text(format!("{} - {}", self.anim_action, current_action_name))
                         .show_ui(ui, |ui| {
                             for (act, name) in actions {
@@ -4681,7 +4686,7 @@ impl UoFiddlerApp {
                                     .selectable_value(
                                         &mut self.anim_action,
                                         *act,
-                                        format!("{}{:02} - {}", check, act, name),
+                                        format!("{}{:02} - {}", check, act, action_display_name(anim_type, name)),
                                     )
                                     .clicked()
                                 {
@@ -4698,7 +4703,7 @@ impl UoFiddlerApp {
                                             .selectable_value(
                                                 &mut self.anim_action,
                                                 extra_act,
-                                                format!("✓ {:02} - Extra {}", extra_act, extra_act),
+                                                format!("✓ {:02} - {}", extra_act, t!("anim.extra", n = extra_act)),
                                             )
                                             .clicked()
                                         {
@@ -4710,7 +4715,7 @@ impl UoFiddlerApp {
                         });
 
                     ui.horizontal(|ui| {
-                        ui.label("Ação ID:");
+                        ui.label(t!("anim.action_id"));
                         if ui
                             .add(egui::DragValue::new(&mut self.anim_action).range(0..=80))
                             .changed()
@@ -4724,14 +4729,14 @@ impl UoFiddlerApp {
                     let current_dir_name = DIRECTIONS
                         .iter()
                         .find(|(d, _)| *d == self.anim_direction)
-                        .map(|(_, n)| *n)
-                        .unwrap_or("0");
-                    egui::ComboBox::from_label("Direção")
+                        .map(|(_, n)| t!(n))
+                        .unwrap_or_else(|| "0".to_string());
+                    egui::ComboBox::from_label(t!("anim.direction"))
                         .selected_text(current_dir_name)
                         .show_ui(ui, |ui| {
                             for (d, name) in DIRECTIONS {
                                 if ui
-                                    .selectable_value(&mut self.anim_direction, d, name)
+                                    .selectable_value(&mut self.anim_direction, d, t!(name))
                                     .clicked()
                                 {
                                     self.load_animation(ctx);
@@ -4740,19 +4745,19 @@ impl UoFiddlerApp {
                         });
 
                     ui.add_space(4.0);
-                    if ui.button("⚡ Recarregar Animação").clicked() {
+                    if ui.button(t!("anim.reload")).clicked() {
                         self.load_animation(ctx);
                     }
                 });
 
                 ui.add_space(8.0);
                 ui.group(|ui| {
-                    ui.label("Reprodução em Tempo Real:");
+                    ui.label(t!("anim.playback"));
                     ui.horizontal(|ui| {
                         let play_btn_text = if self.anim_playing {
-                            "⏸ Pausar"
+                            t!("anim.pause")
                         } else {
-                            "▶ Reproduzir"
+                            t!("anim.play")
                         };
                         if ui.button(play_btn_text).clicked() {
                             self.anim_playing = !self.anim_playing;
@@ -4775,19 +4780,19 @@ impl UoFiddlerApp {
                     });
 
                     ui.horizontal(|ui| {
-                        ui.label("Velocidade:");
+                        ui.label(t!("anim.speed"));
                         ui.add(egui::Slider::new(&mut self.anim_fps, 1..=30).text("fps"));
                     });
 
                     let total_frames = self.anim_frames.len();
-                    ui.label(format!(
-                        "Quadro: {} / {}",
-                        if total_frames == 0 {
+                    ui.label(t!(
+                        "anim.frame",
+                        cur = if total_frames == 0 {
                             0
                         } else {
                             self.anim_current_frame_idx + 1
                         },
-                        total_frames
+                        total = total_frames
                     ));
                 });
             });
@@ -4815,9 +4820,11 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Visualizador - Body {} | Ação {} | Dir {}",
-                self.anim_body, self.anim_action, self.anim_direction
+            ui.heading(t!(
+                "anim.viewer",
+                body = self.anim_body,
+                action = self.anim_action,
+                dir = self.anim_direction
             ));
             // Link animation -> paperdoll gump (equipment animations map to gump 50000+/60000+)
             {
@@ -4827,7 +4834,7 @@ impl UoFiddlerApp {
                 let (gf, _) = self.equip_gump.gump_for_anim(401, self.anim_body, true, exists);
                 let mut goto: Option<u32> = None;
                 ui.horizontal(|ui| {
-                    ui.label("🔗 Gump:");
+                    ui.label(t!("anim.gump_link"));
                     if exists(gm) && ui.button(format!("♂ {} (0x{:04X})", gm, gm)).clicked() {
                         goto = Some(gm);
                     }
@@ -4835,7 +4842,7 @@ impl UoFiddlerApp {
                         goto = Some(gf);
                     }
                     if !exists(gm) && !exists(gf) {
-                        ui.weak("nenhum gump associado a este corpo");
+                        ui.weak(t!("anim.no_gump"));
                     }
                 });
                 if let Some(g) = goto {
@@ -4880,7 +4887,7 @@ impl UoFiddlerApp {
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
-                    "Nenhuma animação carregada",
+                    t!("anim.empty"),
                     egui::FontId::proportional(14.0),
                     egui::Color32::GRAY,
                 );
@@ -4890,13 +4897,13 @@ impl UoFiddlerApp {
 
     // 9. CLILOC TAB
     fn render_cliloc_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Cliloc Localization Table");
+        ui.heading(t!("cliloc.heading"));
         ui.horizontal(|ui| {
             // language of Cliloc.<suffix> (also used by the GumpStudio preview and saved in the settings)
             let langs = self.file_manager.available_languages();
             if !langs.is_empty() {
                 let mut chosen = self.file_manager.language.clone();
-                egui::ComboBox::from_label("Idioma")
+                egui::ComboBox::from_label(t!("cliloc.language"))
                     .selected_text(language_name(&chosen))
                     .show_ui(ui, |ui| {
                         for l in &langs {
@@ -4913,9 +4920,9 @@ impl UoFiddlerApp {
                 }
                 ui.separator();
             }
-            ui.label("Buscar Cliloc:");
+            ui.label(t!("cliloc.search"));
             ui.text_edit_singleline(&mut self.cliloc_search);
-            if ui.button("✖").clicked() {
+            if ui.button(ICON_CLEAR).clicked() {
                 self.cliloc_search.clear();
             }
         });
@@ -4970,7 +4977,7 @@ impl UoFiddlerApp {
                     });
             }
         } else {
-            ui.label("Arquivo Cliloc não encontrado para o idioma escolhido.");
+            ui.label(t!("cliloc.missing"));
         }
     }
 
@@ -4981,16 +4988,13 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("Sounds (sound.mul)");
-                ui.label(format!(
-                    "Total de efeitos sonoros: {}",
-                    self.valid_sounds.len()
-                ));
+                ui.heading(t!("sounds.heading"));
+                ui.label(t!("sounds.total", n = self.valid_sounds.len()));
 
                 ui.horizontal(|ui| {
-                    ui.label("Buscar:");
+                    ui.label(t!("common.search_plain"));
                     ui.text_edit_singleline(&mut self.sound_search);
-                    if ui.button("✖").clicked() {
+                    if ui.button(ICON_CLEAR).clicked() {
                         self.sound_search.clear();
                     }
                 });
@@ -5038,24 +5042,18 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("Detalhes e Reprodução de Áudio");
+            ui.heading(t!("sounds.details"));
             ui.separator();
 
             if let Some(snd) = self.valid_sounds.get(self.sound_selected) {
-                ui.label(format!(
-                    "Sound ID: {} (0x{:03X})",
-                    snd.sound_id, snd.sound_id
-                ));
-                ui.label(format!("Nome do Arquivo: {}", snd.name));
-                ui.label(format!(
-                    "Tamanho PCM: {} bytes (WAV 22050Hz Mono)",
-                    snd.pcm_data.len()
-                ));
+                ui.label(t!("sounds.id", id = snd.sound_id, hex = format!("{:03X}", snd.sound_id)));
+                ui.label(t!("sounds.file_name", name = snd.name));
+                ui.label(t!("sounds.pcm_size", bytes = snd.pcm_data.len()));
 
                 ui.add_space(16.0);
                 if ui
                     .button(
-                        egui::RichText::new("▶ Tocar Som")
+                        egui::RichText::new(t!("sounds.play"))
                             .size(18.0)
                             .color(egui::Color32::from_rgb(102, 187, 106)),
                     )
@@ -5064,7 +5062,7 @@ impl UoFiddlerApp {
                     snd.play();
                 }
             } else {
-                ui.label("Nenhum som selecionado.");
+                ui.label(t!("sounds.none"));
             }
         });
     }
@@ -5087,13 +5085,15 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 8.0;
                     let before = self.map_mode;
+                    let (mode_iso, mode_radar, mode_overview) =
+                        (t!("map.mode.isometric"), t!("map.mode.radar"), t!("map.mode.overview"));
                     widgets::segmented(
                         ui,
                         &mut self.map_mode,
                         &[
-                            (MapMode::Live, "Isometric"),
-                            (MapMode::Radar, "Radar"),
-                            (MapMode::Overview, "Overview"),
+                            (MapMode::Live, mode_iso.as_str()),
+                            (MapMode::Radar, mode_radar.as_str()),
+                            (MapMode::Overview, mode_overview.as_str()),
                         ],
                         260.0,
                     );
@@ -5115,7 +5115,7 @@ impl UoFiddlerApp {
                     // Where to go: the facet's presets, or x, y.
                     ui.label(egui::RichText::new(icon::MAP_PIN).font(style::icon()));
                     egui::ComboBox::from_id_salt("map-preset")
-                        .selected_text("Go to…")
+                        .selected_text(t!("map.goto"))
                         .width(150.0)
                         .show_ui(ui, |ui| {
                             for (m, name, x, y) in PRESET_LOCATIONS {
@@ -5136,23 +5136,23 @@ impl UoFiddlerApp {
                         .changed();
                     ui.separator();
                     // What to show, in one menu.
-                    ui.menu_button(format!("{}  View", icon::EYE), |ui| {
-                        changed |= ui.checkbox(&mut self.map_show_statics, "Statics").changed();
+                    ui.menu_button(t!("map.view", icon = icon::EYE), |ui| {
+                        changed |= ui.checkbox(&mut self.map_show_statics, t!("map.statics")).changed();
                         if self.map_mode == MapMode::Live {
-                            ui.checkbox(&mut self.map_panel.view.cut.hide_roofs, "Hide roofs");
-                            ui.checkbox(&mut self.map_panel.view.show_grid, "Grid");
+                            ui.checkbox(&mut self.map_panel.view.cut.hide_roofs, t!("map.hide_roofs"));
+                            ui.checkbox(&mut self.map_panel.view.show_grid, t!("map.grid"));
                             ui.horizontal(|ui| {
-                                ui.label("Max Z");
+                                ui.label(t!("map.max_z"));
                                 if ui
                                     .add(egui::Slider::new(&mut self.map_max_z, -128..=127))
-                                    .on_hover_text("Hide everything above this height (peel off roofs and upper floors)")
+                                    .on_hover_text(t!("map.max_z.tip"))
                                     .changed()
                                 {
                                     self.map_panel.view.cut.cut = (self.map_max_z < 127).then_some(self.map_max_z);
                                 }
                             });
                             ui.horizontal(|ui| {
-                                ui.label("Zoom");
+                                ui.label(t!("common.zoom"));
                                 ui.add(egui::Slider::new(
                                     &mut self.map_panel.view.zoom,
                                     map::view::MIN_ZOOM..=map::view::MAX_ZOOM,
@@ -5161,7 +5161,7 @@ impl UoFiddlerApp {
                         }
                         if self.map_mode == MapMode::Radar {
                             ui.horizontal(|ui| {
-                                ui.label("Zoom");
+                                ui.label(t!("common.zoom"));
                                 changed |= ui
                                     .add(egui::Slider::new(&mut self.map_zoom, 0.5..=4.0))
                                     .changed();
@@ -5170,7 +5170,7 @@ impl UoFiddlerApp {
                         let (dl, ds) = self.map_mgr.diff_counts(self.map_id);
                         if dl + ds > 0 {
                             changed |= ui
-                                .checkbox(&mut self.map_use_diff, format!("mapdif patches ({} + {} blocks)", dl, ds))
+                                .checkbox(&mut self.map_use_diff, t!("map.diff", dl = dl, ds = ds))
                                 .changed();
                         }
                         if self.map_mode == MapMode::Overview && self.map_id <= 1 {
@@ -5180,7 +5180,7 @@ impl UoFiddlerApp {
                     // The editor, on the right.
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let edit = egui::Button::new(
-                            egui::RichText::new(format!("{}  Edit map", icon::PENCIL_SIMPLE))
+                            egui::RichText::new(t!("map.edit", icon = icon::PENCIL_SIMPLE))
                                 .strong()
                                 .color(style::color::BG),
                         )
@@ -5188,7 +5188,7 @@ impl UoFiddlerApp {
                         .min_size(egui::vec2(0.0, 28.0));
                         if ui
                             .add_enabled(self.map_mgr.has_map(self.map_id), edit)
-                            .on_hover_text("Open the map editor (F11): paint, stamp, shape the ground, then save into the client files")
+                            .on_hover_text(t!("map.edit.tip"))
                             .clicked()
                         {
                             self.map_mode = MapMode::Live;
@@ -5196,7 +5196,7 @@ impl UoFiddlerApp {
                         }
                         let pending = self.map_panel.edits[self.map_id].len();
                         if pending > 0 {
-                            widgets::chip(ui, &format!("{} tiles not saved", pending), style::color::ACCENT);
+                            widgets::chip(ui, &t!("map.unsaved", n = pending), style::color::ACCENT);
                         }
                     });
                 });
@@ -5290,7 +5290,7 @@ impl UoFiddlerApp {
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
-                    format!("Carregando mapa {}...", self.map_id),
+                    t!("map.loading", id = self.map_id),
                     egui::FontId::proportional(16.0),
                     egui::Color32::from_rgb(180, 200, 190),
                 );
@@ -5305,19 +5305,19 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("Controle de Multis");
+                ui.heading(t!("multis.heading"));
                 ui.add_space(4.0);
 
                 // Source selector: Clássico vs Enhanced
                 ui.horizontal(|ui| {
-                    let classic_btn = ui.selectable_label(!self.multi_mode_enhanced, "📜 Clássico");
+                    let classic_btn = ui.selectable_label(!self.multi_mode_enhanced, &t!("common.classic"));
                     if classic_btn.clicked() && self.multi_mode_enhanced {
                         self.multi_mode_enhanced = false;
                         self.refresh_valid_multis();
                         self.render_current_multi(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.multi_mode_enhanced, "✨ Enhanced (UOP)");
+                        ui.selectable_label(self.multi_mode_enhanced, &t!("common.enhanced_uop"));
                     if enhanced_btn.clicked() && !self.multi_mode_enhanced {
                         self.multi_mode_enhanced = true;
                         self.refresh_valid_multis();
@@ -5327,9 +5327,9 @@ impl UoFiddlerApp {
 
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.multi_search);
-                    if !self.multi_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.multi_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.multi_search.clear();
                     }
                 });
@@ -5360,7 +5360,7 @@ impl UoFiddlerApp {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     ui.label(
-                        egui::RichText::new(format!("Total: {} multis", filtered.len()))
+                        egui::RichText::new(t!("multis.total", n = filtered.len()))
                             .color(egui::Color32::GRAY),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -5390,7 +5390,7 @@ impl UoFiddlerApp {
                             let id = filtered[idx];
                             let name = self
                                 .get_multi_name(id)
-                                .unwrap_or_else(|| "Estrutura".to_string());
+                                .unwrap_or_else(|| t!("multis.structure"));
                             let label = format!("0x{:04X} ({}) - {}", id, id, name);
                             let is_sel = self.multi_id == id;
                             let resp = ui.selectable_label(is_sel, label);
@@ -5436,20 +5436,20 @@ impl UoFiddlerApp {
                     ui.add_space(10.0);
                     ui.label(format!("{:.2}", self.multi_zoom));
                     ui.label(
-                        egui::RichText::new("Zoom")
+                        egui::RichText::new(t!("common.zoom"))
                             .size(11.0)
                             .color(egui::Color32::GRAY),
                     );
                     if ui
                         .button("1x")
-                        .on_hover_text("Redefinir Zoom para 100%")
+                        .on_hover_text(t!("multis.zoom_reset.tip"))
                         .clicked()
                     {
                         self.multi_zoom = 1.0;
                     }
                     if ui
                         .button("⟲")
-                        .on_hover_text("Centralizar Posição")
+                        .on_hover_text(t!("multis.center.tip"))
                         .clicked()
                     {
                         self.multi_pan = egui::Vec2::ZERO;
@@ -5458,44 +5458,44 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            let multi_name = self.get_multi_name(self.multi_id).unwrap_or_else(|| "Estrutura Multi".to_string());
+            let multi_name = self.get_multi_name(self.multi_id).unwrap_or_else(|| t!("multis.structure_multi"));
             let comp_count = self.current_multi_structure.as_ref().map(|s| s.components.len()).unwrap_or(0);
 
             ui.horizontal(|ui| {
-                ui.heading(format!("Multi 0x{:04X} ({}) - {}", self.multi_id, self.multi_id, multi_name));
-                ui.label(egui::RichText::new(format!("({} componentes)", comp_count)).color(egui::Color32::LIGHT_GRAY));
+                ui.heading(t!("multis.title", id = format!("{:04X}", self.multi_id), dec = self.multi_id, name = multi_name));
+                ui.label(egui::RichText::new(t!("multis.components_count", n = comp_count)).color(egui::Color32::LIGHT_GRAY));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("⟲ Centralizar").clicked() {
+                    if ui.button(t!("multis.center")).clicked() {
                         self.multi_pan = egui::Vec2::ZERO;
                     }
                 });
             });
 
             ui.horizontal(|ui| {
-                ui.label("Corte Z (Andar):");
-                if ui.add(egui::Slider::new(&mut self.multi_max_z, -20..=120).text("Z máx")).changed() {
+                ui.label(t!("multis.cut_z"));
+                if ui.add(egui::Slider::new(&mut self.multi_max_z, -20..=120).text(t!("multis.max_z"))).changed() {
                     self.render_current_multi(ctx);
                 }
-                if ui.button("Todos").clicked() {
+                if ui.button(t!("multis.all")).clicked() {
                     self.multi_max_z = 120;
                     self.render_current_multi(ctx);
                 }
-                if ui.button("Térreo").clicked() {
+                if ui.button(t!("multis.ground")).clicked() {
                     self.multi_max_z = 20;
                     self.render_current_multi(ctx);
                 }
-                if ui.button("1º Andar").clicked() {
+                if ui.button(t!("multis.floor1")).clicked() {
                     self.multi_max_z = 40;
                     self.render_current_multi(ctx);
                 }
-                if ui.button("⚡ Recarregar").clicked() {
+                if ui.button(t!("multis.reload")).clicked() {
                     self.render_current_multi(ctx);
                 }
             });
 
             ui.separator();
 
-            egui::CollapsingHeader::new(format!("📋 Lista de Componentes ({})", comp_count))
+            egui::CollapsingHeader::new(t!("multis.components", n = comp_count))
                 .default_open(false)
                 .show(ui, |ui| {
                     if let Some(structure) = &self.current_multi_structure {
@@ -5506,9 +5506,15 @@ impl UoFiddlerApp {
                             .show_rows(ui, 18.0, total_comp, |ui, row_range| {
                                 for idx in row_range {
                                     let c = &structure.components[idx];
-                                    ui.label(format!(
-                                        "#{:03}: Item 0x{:04X} ({}) | Offset: ({}, {}, {}) | Flags: 0x{:04X}",
-                                        idx, c.item_id, c.item_id, c.offset_x, c.offset_y, c.offset_z, c.flags
+                                    ui.label(t!(
+                                        "multis.component",
+                                        idx = format!("{:03}", idx),
+                                        id = format!("{:04X}", c.item_id),
+                                        dec = c.item_id,
+                                        x = c.offset_x,
+                                        y = c.offset_y,
+                                        z = c.offset_z,
+                                        flags = format!("{:04X}", c.flags)
                                     ));
                                 }
                             });
@@ -5548,7 +5554,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Selecione um Multi para renderização instantânea",
+                        t!("multis.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -5564,7 +5570,7 @@ impl UoFiddlerApp {
             .default_width(260.0)
             .min_width(200.0)
             .show_inside(ui, |ui| {
-                ui.heading("Light Patterns (light.mul)");
+                ui.heading(t!("light.heading"));
                 ui.separator();
                 let total = self.valid_lights.len();
                 egui::ScrollArea::vertical()
@@ -5572,7 +5578,7 @@ impl UoFiddlerApp {
                     .show_rows(ui, 20.0, total, |ui, row_range| {
                         for idx in row_range {
                             let lid = self.valid_lights[idx];
-                            let label = format!("Light {} (0x{:02X})", lid, lid);
+                            let label = t!("light.item", id = lid, hex = format!("{:02X}", lid));
                             let is_sel = self.light_id == lid;
                             let resp = ui.selectable_label(is_sel, label);
                             if resp.clicked() {
@@ -5587,9 +5593,11 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Light Mask #{} - Dimensões: {} x {} px",
-                self.light_id, self.light_dim.0, self.light_dim.1
+            ui.heading(t!(
+                "light.title",
+                id = self.light_id,
+                w = self.light_dim.0,
+                h = self.light_dim.1
             ));
             ui.separator();
 
@@ -5612,7 +5620,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhum padrão de luz carregado",
+                        t!("light.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -5623,12 +5631,12 @@ impl UoFiddlerApp {
 
     // 14. FONTS TAB
     fn render_fonts_tab(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Fonts Manager (fonts.mul)");
+        ui.heading(t!("fonts.heading"));
         ui.horizontal(|ui| {
-            ui.label("Fonte:");
+            ui.label(t!("fonts.font"));
             for i in 0..10 {
                 if ui
-                    .selectable_label(self.font_selected == i, format!("Fonte {}", i))
+                    .selectable_label(self.font_selected == i, t!("fonts.font_n", n = i))
                     .clicked()
                 {
                     self.font_selected = i;
@@ -5638,7 +5646,7 @@ impl UoFiddlerApp {
         });
 
         ui.horizontal(|ui| {
-            ui.label("Texto de Teste:");
+            ui.label(t!("fonts.test_text"));
             if ui
                 .text_edit_singleline(&mut self.font_preview_text)
                 .changed()
@@ -5668,7 +5676,7 @@ impl UoFiddlerApp {
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
-                    "Sem preview de texto",
+                    t!("fonts.empty"),
                     egui::FontId::proportional(14.0),
                     egui::Color32::GRAY,
                 );
@@ -5678,10 +5686,10 @@ impl UoFiddlerApp {
 
     // 15. SKILLS TAB
     fn render_skills_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Skills Table (skills.mul)");
+        ui.heading(t!("skills.heading"));
         if let Some(si) = &self.skills_index {
             let valid: Vec<usize> = (0..100).filter(|&i| si.is_valid(i)).collect();
-            ui.label(format!("Habilidades encontradas: {}", valid.len()));
+            ui.label(t!("skills.found", n = valid.len()));
             ui.separator();
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
@@ -5701,7 +5709,7 @@ impl UoFiddlerApp {
                                 ui.label(name);
                                 if has_action {
                                     ui.label(
-                                        egui::RichText::new("[Ação]")
+                                        egui::RichText::new(t!("skills.action"))
                                             .color(egui::Color32::from_rgb(102, 187, 106)),
                                     );
                                 }
@@ -5710,17 +5718,17 @@ impl UoFiddlerApp {
                     }
                 });
         } else {
-            ui.label("skills.mul / skills.idx não encontrado.");
+            ui.label(t!("skills.missing"));
         }
     }
 
     // 16. SPEECH TAB
     fn render_speech_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Speech Keywords (speech.mul)");
+        ui.heading(t!("speech.heading"));
         ui.horizontal(|ui| {
-            ui.label("Buscar Palavra-chave:");
+            ui.label(t!("speech.search"));
             ui.text_edit_singleline(&mut self.speech_search);
-            if ui.button("✖").clicked() {
+            if ui.button(ICON_CLEAR).clicked() {
                 self.speech_search.clear();
             }
         });
@@ -5759,7 +5767,7 @@ impl UoFiddlerApp {
                     }
                 });
         } else {
-            ui.label("speech.mul não encontrado.");
+            ui.label(t!("common.not_found", file = "speech.mul"));
         }
     }
 
@@ -5770,19 +5778,19 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("AnimData (animdata.mul)");
+                ui.heading(t!("animdata.heading"));
                 ui.separator();
                 if let Some(adm) = &self.animdata_mgr {
                     let mut keys: Vec<u32> = adm.entries.keys().copied().collect();
                     keys.sort();
-                    ui.label(format!("Itens animados: {}", keys.len()));
+                    ui.label(t!("animdata.count", n = keys.len()));
 
                     egui::ScrollArea::vertical()
                         .auto_shrink([false, false])
                         .show_rows(ui, 20.0, keys.len(), |ui, row_range| {
                             for idx in row_range {
                                 let item_id = keys[idx];
-                                let label = format!("Item 0x{:04X} ({})", item_id, item_id);
+                                let label = t!("animdata.item", id = format!("{:04X}", item_id), dec = item_id);
                                 let is_sel = self.animdata_selected == Some(item_id);
                                 let resp = ui.selectable_label(is_sel, label);
                                 if resp.clicked() {
@@ -5810,24 +5818,24 @@ impl UoFiddlerApp {
                             }
                         });
                 } else {
-                    ui.label("animdata.mul não encontrado.");
+                    ui.label(t!("common.not_found", file = "animdata.mul"));
                 }
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("Propriedades de Animação");
+            ui.heading(t!("animdata.props"));
             ui.separator();
 
             if let Some(item_id) = self.animdata_selected {
                 if let Some(adm) = &self.animdata_mgr {
                     if let Some(e) = adm.entries.get(&item_id) {
-                        ui.label(format!("Item ID: 0x{:04X} ({})", e.item_id, e.item_id));
-                        ui.label(format!("Quantidade de Quadros: {}", e.frame_count));
-                        ui.label(format!("Intervalo de Quadros: {}", e.frame_interval));
-                        ui.label(format!("Start Delay: {}", e.frame_start));
-                        ui.label(format!(
-                            "Offsets de Quadros: {:?}",
-                            &e.frames[..e.frame_count as usize]
+                        ui.label(t!("animdata.item_id", id = format!("{:04X}", e.item_id), dec = e.item_id));
+                        ui.label(t!("animdata.frame_count", n = e.frame_count));
+                        ui.label(t!("animdata.frame_interval", n = e.frame_interval));
+                        ui.label(t!("animdata.start_delay", n = e.frame_start));
+                        ui.label(t!(
+                            "animdata.frame_offsets",
+                            list = format!("{:?}", &e.frames[..e.frame_count as usize])
                         ));
                     }
                 }
@@ -5851,7 +5859,7 @@ impl UoFiddlerApp {
                     }
                 });
             } else {
-                ui.label("Selecione um item animado na lista à esquerda.");
+                ui.label(t!("animdata.select"));
             }
         });
     }
@@ -5861,10 +5869,10 @@ impl UoFiddlerApp {
         if self.gamedata_archive.entries.is_empty() {
             ui.vertical_centered(|ui| {
                 ui.add_space(60.0);
-                ui.heading("⚠ GameData.uop não encontrado");
+                ui.heading(t!("gamedata.missing"));
                 ui.add_space(8.0);
-                ui.label("O arquivo GameData.uop contém as 79 tabelas de configuração do cliente 3D Enhanced (EC).");
-                ui.label("Configure o caminho da pasta do Ultima Online Enhanced nas Configurações (F3 ou Menu Arquivo).");
+                ui.label(t!("gamedata.missing1"));
+                ui.label(t!("gamedata.missing2"));
             });
             return;
         }
@@ -5875,13 +5883,13 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("Tabelas de Configuração");
+                ui.heading(t!("gamedata.heading"));
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.gamedata_search);
-                    if !self.gamedata_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.gamedata_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gamedata_search.clear();
                     }
                 });
@@ -5907,7 +5915,7 @@ impl UoFiddlerApp {
                     .collect();
 
                 ui.label(
-                    egui::RichText::new(format!("Total: {} tabelas", matching.len()))
+                    egui::RichText::new(t!("gamedata.total", n = matching.len()))
                         .color(egui::Color32::GRAY),
                 );
                 ui.separator();
@@ -5931,9 +5939,9 @@ impl UoFiddlerApp {
 
                 ui.separator();
                 ui.group(|ui| {
-                    ui.label("Exportação:");
+                    ui.label(t!("gamedata.export"));
                     ui.horizontal(|ui| {
-                        if ui.button("Exportar Atual (CSV)").clicked() {
+                        if ui.button(t!("gamedata.export_current")).clicked() {
                             if let Some(entry) = self
                                 .gamedata_archive
                                 .entries
@@ -5941,14 +5949,15 @@ impl UoFiddlerApp {
                             {
                                 let filename = format!("export_{}", entry.name);
                                 if std::fs::write(&filename, &entry.raw_data).is_ok() {
-                                    self.status_message = format!(
-                                        "Tabela '{}' exportada com sucesso para '{}' 💾",
-                                        entry.name, filename
+                                    self.status_message = t!(
+                                        "gamedata.exported_one",
+                                        name = entry.name,
+                                        file = filename
                                     );
                                 }
                             }
                         }
-                        if ui.button("Exportar Todas (79)").clicked() {
+                        if ui.button(t!("gamedata.export_all")).clicked() {
                             let dir = std::path::Path::new("exported_gamedata");
                             let _ = std::fs::create_dir_all(dir);
                             let mut count = 0;
@@ -5958,10 +5967,7 @@ impl UoFiddlerApp {
                                     count += 1;
                                 }
                             }
-                            self.status_message = format!(
-                                "Exportadas {} tabelas para a pasta 'exported_gamedata/' 💾",
-                                count
-                            );
+                            self.status_message = t!("gamedata.exported_all", n = count);
                         }
                     });
                 });
@@ -5983,24 +5989,24 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.heading(&entry.name);
                     ui.label(
-                        egui::RichText::new(format!("(Índice {})", entry.index))
+                        egui::RichText::new(t!("gamedata.index", n = entry.index))
                             .color(egui::Color32::GRAY),
                     );
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Hash (64-bit):");
+                    ui.label(t!("gamedata.hash"));
                     ui.label(
                         egui::RichText::new(format!("0x{:016X}", entry.hash))
                             .monospace()
                             .color(egui::Color32::from_rgb(159, 168, 218)),
                     );
                     ui.separator();
-                    ui.label(format!("Linhas: {} | Colunas: {}", rows.len(), headers.len()));
+                    ui.label(t!("gamedata.rows_cols", rows = rows.len(), cols = headers.len()));
                     ui.separator();
-                    ui.label(format!(
-                        "Tamanho: {} KB (comp: {} KB)",
-                        entry.decompressed_size / 1024,
-                        entry.compressed_size / 1024
+                    ui.label(t!(
+                        "gamedata.size",
+                        kb = entry.decompressed_size / 1024,
+                        ckb = entry.compressed_size / 1024
                     ));
                 });
             });
@@ -6008,13 +6014,13 @@ impl UoFiddlerApp {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 if ui
-                    .selectable_label(!self.gamedata_view_raw, "📊 Tabela Estruturada")
+                    .selectable_label(!self.gamedata_view_raw, t!("gamedata.view_table"))
                     .clicked()
                 {
                     self.gamedata_view_raw = false;
                 }
                 if ui
-                    .selectable_label(self.gamedata_view_raw, "📝 Texto Raw (CSV / XML)")
+                    .selectable_label(self.gamedata_view_raw, t!("gamedata.view_raw"))
                     .clicked()
                 {
                     self.gamedata_view_raw = true;
@@ -6033,9 +6039,9 @@ impl UoFiddlerApp {
                 });
             } else {
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Filtrar linhas:");
+                    ui.label(t!("gamedata.filter_rows"));
                     ui.text_edit_singleline(&mut self.gamedata_row_search);
-                    if !self.gamedata_row_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.gamedata_row_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gamedata_row_search.clear();
                     }
                 });
@@ -6079,10 +6085,7 @@ impl UoFiddlerApp {
                     if filtered_rows.len() > 500 {
                         ui.add_space(8.0);
                         ui.label(
-                            egui::RichText::new(format!(
-                                "... exibindo primeiras 500 de {} linhas (use o filtro de linhas para refinar)",
-                                filtered_rows.len()
-                            ))
+                            egui::RichText::new(t!("gamedata.showing_first", n = filtered_rows.len()))
                             .italics()
                             .color(egui::Color32::GRAY),
                         );
