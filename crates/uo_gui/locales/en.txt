@@ -62,3 +62,9 @@ gs.repeat.tip = Repeats the element N times, shifting X/Y each time; button, swi
 gs.repeat.times = Times:
 gs.repeat.step_x = Step X:
 gs.repeat.step_y = Y:
+
+gs.resizepic.browse = Browse resizepics...
+gs.resizepic.title = Resizepic candidates
+gs.resizepic.search = Search by id:
+gs.resizepic.count = {n} candidates found in the client gumps (automatic list: it may include pictures that are not frames)
+gs.resizepic.tip = Click a frame to use it on the selected background

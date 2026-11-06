@@ -62,3 +62,9 @@ gs.repeat.tip = Repete o elemento N vezes deslocando X/Y; ids de botão/switch/e
 gs.repeat.times = Vezes:
 gs.repeat.step_x = Passo X:
 gs.repeat.step_y = Y:
+
+gs.resizepic.browse = Procurar resizepics...
+gs.resizepic.title = Candidatos a resizepic
+gs.resizepic.search = Buscar por id:
+gs.resizepic.count = {n} candidatos encontrados nos gumps do cliente (lista automática: pode incluir imagens que não são molduras)
+gs.resizepic.tip = Clique em uma moldura para usá-la no fundo selecionado
