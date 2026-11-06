@@ -5,7 +5,41 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Client languages: (file suffix, name). Localized files are named `<resource>.<suffix>`
+/// (`Cliloc.enu`, `Tooltips.deu`, `Intloc00.fra`, ...).
+pub const LANGUAGES: [(&str, &str); 8] = [
+    ("enu", "Inglês"),
+    ("deu", "Alemão"),
+    ("esp", "Espanhol"),
+    ("fra", "Francês"),
+    ("jpn", "Japonês"),
+    ("kor", "Coreano"),
+    ("cht", "Chinês tradicional"),
+    ("chs", "Chinês simplificado"),
+];
+
+/// "Inglês (enu)" for a known suffix, the suffix itself otherwise.
+pub fn language_name(code: &str) -> String {
+    let c = code.to_lowercase();
+    match LANGUAGES.iter().find(|(k, _)| *k == c) {
+        Some((k, n)) => format!("{} ({})", n, k),
+        None => c,
+    }
+}
+
+/// Orders language suffixes like `LANGUAGES` (unknown ones last, alphabetical) and removes duplicates.
+pub fn sort_languages(mut codes: Vec<String>) -> Vec<String> {
+    for c in &mut codes {
+        *c = c.to_lowercase();
+    }
+    codes.sort_by_key(|c| (LANGUAGES.iter().position(|(k, _)| k == c).unwrap_or(usize::MAX), c.clone()));
+    codes.dedup();
+    codes
+}
+
 pub struct FileManager {
+    /// language used for localized files (suffix, e.g. "enu")
+    pub language: String,
     pub uo_dir: Option<PathBuf>,
     pub uo_ec_dir: Option<PathBuf>,
     pub high_seas: bool,
@@ -28,6 +62,7 @@ pub struct FileDetectionStatus {
 impl FileManager {
     pub fn new() -> Self {
         let mut fm = Self {
+            language: "enu".to_string(),
             uo_dir: None,
             uo_ec_dir: None,
             high_seas: true,
@@ -127,6 +162,26 @@ impl FileManager {
         v
     }
 
+    /// Languages that have a `Cliloc.<suffix>` file in the client folders.
+    pub fn available_languages(&self) -> Vec<String> {
+        let codes: Vec<String> = self
+            .list_files()
+            .into_iter()
+            .filter_map(|(name, _, _)| {
+                let lower = name.to_lowercase();
+                lower.strip_prefix("cliloc.").map(|e| e.to_string())
+            })
+            .collect();
+        sort_languages(codes)
+    }
+
+    /// Path of a localized file in the chosen language (`base` without extension), falling back to
+    /// English when that language has no such file.
+    pub fn language_file(&self, base: &str) -> Option<PathBuf> {
+        self.get_file_path(&format!("{}.{}", base, self.language))
+            .or_else(|| self.get_file_path(&format!("{}.enu", base)))
+    }
+
     pub fn get_ec_file_path(&self, filename: &str) -> Option<PathBuf> {
         self.ec_file_map.get(&filename.to_lowercase()).cloned()
     }
@@ -179,6 +234,9 @@ impl FileManager {
                         if let Some(hs) = val.get("high_seas").and_then(|v| v.as_bool()) {
                             self.high_seas = hs;
                         }
+                        if let Some(lang) = val.get("language").and_then(|v| v.as_str()) {
+                            self.language = lang.to_lowercase();
+                        }
                         return;
                     }
                 }
@@ -196,6 +254,7 @@ impl FileManager {
             "uo_dir": self.uo_dir.as_ref().map(|p| p.display().to_string()),
             "uo_ec_dir": self.uo_ec_dir.as_ref().map(|p| p.display().to_string()),
             "high_seas": self.high_seas,
+            "language": self.language,
         });
 
         if let Ok(str_val) = serde_json::to_string_pretty(&val) {
@@ -282,5 +341,18 @@ impl FileManager {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod language_tests {
+    use super::*;
+
+    #[test]
+    fn languages_are_ordered_and_named() {
+        let v = sort_languages(vec!["KOR".into(), "enu".into(), "xyz".into(), "deu".into(), "enu".into()]);
+        assert_eq!(v, vec!["enu", "deu", "kor", "xyz"]);
+        assert_eq!(language_name("DEU"), "Alemão (deu)");
+        assert_eq!(language_name("xx"), "xx");
     }
 }
