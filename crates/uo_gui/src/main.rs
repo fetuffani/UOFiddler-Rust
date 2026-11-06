@@ -2464,6 +2464,7 @@ impl eframe::App for UoFiddlerApp {
                     ascii_fonts: self.fonts_mgr.as_ref(),
                     gump_index: self.gump_index.as_ref(),
                     art: self.art_index.as_ref(),
+                    tiledata: self.tiledata.as_ref(),
                     hues: self.hues.as_ref(),
                     cliloc: self.cliloc.as_ref(),
                     cliloc_lang: &self.file_manager.language,
