@@ -123,8 +123,9 @@ impl ClassicAnimResolver {
     }
 }
 
-/// Loads the frames of a body/action/direction the way the viewer does: Body.def/Bodyconv.def
-/// resolved classic MUL first, then UOP, then every classic file with the legacy formulas.
+/// Loads the frames of a creature / body animation. One path for every view of the program:
+/// UOP when it defines the action, then classic MUL resolved through Body.def / Bodyconv.def,
+/// then UOP again, then every classic file with the legacy formulas.
 pub fn load_animation_frames(
     resolver: &ClassicAnimResolver,
     mul: &HashMap<u32, crate::FileIndex>,
@@ -134,6 +135,11 @@ pub fn load_animation_frames(
     direction: u8,
 ) -> Option<Vec<crate::AnimationFrame>> {
     let flip = direction > 4;
+    if uop.is_action_defined(body, action) {
+        if let Some(frames) = uop.get_animation_frames(body, action, direction) {
+            return Some(frames);
+        }
+    }
     let r = resolver.resolve(body);
     if let Some(data) = mul
         .get(&r.file_type)
@@ -155,6 +161,32 @@ pub fn load_animation_frames(
                 return Some(frames);
             }
         }
+    }
+    None
+}
+
+/// Loads the frames of a worn item animation (`anim_id` already converted with
+/// `EquipGumpMap::convert_anim`). Equipment has its own id space: it lives in the classic
+/// `anim.mul` (file 1); the creature tables (Bodyconv.def, UOP monsters) are NOT consulted because
+/// the same number can be a monster (for example 734 is the Slith). UOP is used only when
+/// `uop_is_equipment` says mobtypes.txt classifies this id as equipment.
+pub fn load_equipment_frames(
+    mul: &HashMap<u32, crate::FileIndex>,
+    uop: &crate::UopAnimationIndex,
+    uop_is_equipment: bool,
+    anim_id: u32,
+    action: u32,
+    direction: u8,
+) -> Option<Vec<crate::AnimationFrame>> {
+    let flip = direction > 4;
+    if let Some(data) = mul.get(&1).and_then(|fi| fi.get_data(ClassicAnimResolver::index(1, anim_id, action, direction))) {
+        let frames = crate::decode_animation_mul(&data, flip);
+        if !frames.is_empty() {
+            return Some(frames);
+        }
+    }
+    if uop_is_equipment {
+        return uop.get_animation_frames(anim_id, action, direction);
     }
     None
 }

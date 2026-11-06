@@ -25,6 +25,8 @@ pub struct PaperdollData<'a> {
     pub resolver: &'a ClassicAnimResolver,
     pub mul_anim: &'a HashMap<u32, FileIndex>,
     pub uop_anim: &'a UopAnimationIndex,
+    /// body ids that mobtypes.txt classifies as equipment
+    pub equipment_bodies: &'a std::collections::HashSet<u32>,
     /// art.mul index (item art for the slot view)
     pub art: Option<&'a FileIndex>,
 }
@@ -244,7 +246,9 @@ impl PaperdollTab {
         }
         let mut layers: Vec<(i32, Vec<AnimationFrame>)> = Vec::new();
         for (l, e) in &self.equipped {
-            if let Some(mut frames) = load(e.anim_id as u32) {
+            let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
+            let frames = load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction);
+            if let Some(mut frames) = frames {
                 if let Some(p) = hue_palette(d.hues, e.hue) {
                     for f in &mut frames {
                         apply_hue_bytes(&mut f.rgba_data, &p, e.partial);
@@ -329,6 +333,11 @@ impl PaperdollTab {
                 if let Some(k) = p.next().and_then(|x| x.parse::<usize>().ok()) {
                     self.body = BodyKind::ALL[k.min(5)];
                 }
+            }
+            // UOFIDDLER_PAPERDOLL_ITEMS=0x2662,0x1539 equips exact items (automated screenshots)
+            if let Ok(v) = std::env::var("UOFIDDLER_PAPERDOLL_ITEMS") {
+                let ids: Vec<u16> = v.split(',').filter_map(|x| u16::from_str_radix(x.trim().trim_start_matches("0x"), 16).ok()).collect();
+                self.preset(d.tiledata, &ids);
             }
         }
         if self.dirty {

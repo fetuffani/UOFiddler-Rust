@@ -81,6 +81,15 @@ impl EquipGumpMap {
         (gump, hue)
     }
 
+    /// Equipment animation id actually used for a body type: `Equipconv.def` can redirect it
+    /// (`convertToID`); without an entry the item's own animation id is used.
+    pub fn convert_anim(&self, body_type: u32, anim_id: u32) -> u32 {
+        match self.equip_conv.get(&(body_type, anim_id)) {
+            Some(e) if e.convert_to > 0 => e.convert_to as u32,
+            _ => anim_id,
+        }
+    }
+
     /// Reverse lookup: which equipment animation id does a paperdoll gump belong to?
     /// Returns (anim id, female).
     pub fn anim_for_gump(&self, gump_id: u32) -> Option<(u32, bool)> {
@@ -100,5 +109,18 @@ impl EquipGumpMap {
             60000..=69999 => Some((gump_id - 60000, true)),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn convert_anim_uses_equipconv() {
+        let m = EquipGumpMap::parse(Some("401\t866\t867\t60867\t0\t# helm\n"), None);
+        assert_eq!(m.convert_anim(401, 866), 867);
+        assert_eq!(m.convert_anim(400, 866), 866);
+        assert_eq!(m.convert_anim(401, 5), 5);
     }
 }

@@ -520,6 +520,7 @@ pub struct UoFiddlerApp {
     anim_indices: HashMap<u32, FileIndex>,
     anim_resolver: ClassicAnimResolver,
     equip_gump: EquipGumpMap,
+    equipment_bodies: std::collections::HashSet<u32>,
     packets_tab: packets_tab::PacketsTab,
     files_tab: files_tab::FilesTab,
     paperdoll_tab: paperdoll_tab::PaperdollTab,
@@ -734,6 +735,7 @@ impl Default for UoFiddlerApp {
             anim_indices: HashMap::new(),
             anim_resolver: ClassicAnimResolver::default(),
             equip_gump: EquipGumpMap::default(),
+            equipment_bodies: std::collections::HashSet::new(),
             packets_tab: packets_tab::PacketsTab::default(),
             files_tab: files_tab::FilesTab::default(),
             paperdoll_tab: paperdoll_tab::PaperdollTab::default(),
@@ -1197,6 +1199,9 @@ impl UoFiddlerApp {
             read_txt(&self.file_manager, "bodyconv.def").as_deref(),
         );
 
+        self.equipment_bodies = read_txt(&self.file_manager, "mobtypes.txt")
+            .map(|t| equipment_bodies_from_mobtypes(&t))
+            .unwrap_or_default();
         self.equip_gump = EquipGumpMap::parse(
             read_txt(&self.file_manager, "equipconv.def").as_deref(),
             read_txt(&self.file_manager, "gump.def").as_deref(),
@@ -1437,116 +1442,51 @@ impl UoFiddlerApp {
         self.anim_frames.clear();
         self.anim_current_frame_idx = 0;
 
-        // 1. Try UOP if in enhanced mode or as defined modern source
-        if self.anim_mode_enhanced
-            || self
-                .uop_anim_index
-                .is_action_defined(self.anim_body, self.anim_action)
-        {
-            if let Some(frames) = self.uop_anim_index.get_animation_frames(
+        // Same reader as the paperdoll builder (uo_core::load_animation_frames).
+        let frames = if self.anim_mode_enhanced {
+            self.uop_anim_index
+                .get_animation_frames(self.anim_body, self.anim_action, self.anim_direction)
+                .or_else(|| {
+                    load_animation_frames(
+                        &self.anim_resolver,
+                        &self.anim_indices,
+                        &self.uop_anim_index,
+                        self.anim_body,
+                        self.anim_action,
+                        self.anim_direction,
+                    )
+                })
+        } else {
+            load_animation_frames(
+                &self.anim_resolver,
+                &self.anim_indices,
+                &self.uop_anim_index,
                 self.anim_body,
                 self.anim_action,
                 self.anim_direction,
-            ) {
+            )
+        };
+
+        match frames {
+            Some(frames) => {
                 let count = frames.len();
                 self.anim_frames = frames;
                 self.update_animation_texture(ctx);
-                let dt = t0.elapsed();
                 self.status_message = format!(
-                    "Animação UOP Body {} Action {} carregada: {} quadros em {:.2} ms ⚡",
+                    "Animação Body {} Action {} carregada: {} quadros em {:.2} ms ⚡",
                     self.anim_body,
                     self.anim_action,
                     count,
-                    dt.as_secs_f64() * 1000.0
+                    t0.elapsed().as_secs_f64() * 1000.0
                 );
-                return;
+            }
+            None => {
+                self.status_message = format!(
+                    "Nenhum quadro encontrado para Body {} Action {}.",
+                    self.anim_body, self.anim_action
+                );
             }
         }
-
-        // 2a. Classic MUL resolved through Body.def / Bodyconv.def
-        {
-            let r = self.anim_resolver.resolve(self.anim_body);
-            let raw_index =
-                ClassicAnimResolver::index(r.file_type, r.body, self.anim_action, self.anim_direction);
-            if let Some(data) = self
-                .anim_indices
-                .get(&r.file_type)
-                .and_then(|fi| fi.get_data(raw_index))
-            {
-                let frames = decode_animation_mul(&data, self.anim_direction > 4);
-                if !frames.is_empty() {
-                    let count = frames.len();
-                    self.anim_frames = frames;
-                    self.update_animation_texture(ctx);
-                    self.status_message = format!(
-                        "Animação MUL (Anim{}) Body {} -> {} Action {} carregada: {} quadros em {:.2} ms ⚡",
-                        r.file_type,
-                        self.anim_body,
-                        r.body,
-                        self.anim_action,
-                        count,
-                        t0.elapsed().as_secs_f64() * 1000.0
-                    );
-                    return;
-                }
-            }
-        }
-
-        // 2b. Fallback: try every classic MUL Anim1..Anim5 with the legacy formulas
-        for file_type in [1u32, 2, 3, 4, 5] {
-            let raw_index = Self::calculate_mul_anim_index(
-                self.anim_body,
-                self.anim_action,
-                self.anim_direction,
-                file_type,
-            );
-            if let Some(fi) = self.anim_indices.get(&file_type) {
-                if let Some(data) = fi.get_data(raw_index) {
-                    let flip = self.anim_direction > 4;
-                    let frames = decode_animation_mul(&data, flip);
-                    if !frames.is_empty() {
-                        let count = frames.len();
-                        self.anim_frames = frames;
-                        self.update_animation_texture(ctx);
-                        let dt = t0.elapsed();
-                        self.status_message = format!(
-                            "Animação MUL (Anim{}) Body {} Action {} carregada: {} quadros em {:.2} ms ⚡",
-                            file_type,
-                            self.anim_body,
-                            self.anim_action,
-                            count,
-                            dt.as_secs_f64() * 1000.0
-                        );
-                        return;
-                    }
-                }
-            }
-        }
-
-        // 3. Fallback to UOP
-        if let Some(frames) = self.uop_anim_index.get_animation_frames(
-            self.anim_body,
-            self.anim_action,
-            self.anim_direction,
-        ) {
-            let count = frames.len();
-            self.anim_frames = frames;
-            self.update_animation_texture(ctx);
-            let dt = t0.elapsed();
-            self.status_message = format!(
-                "Animação UOP Body {} Action {} carregada: {} quadros em {:.2} ms ⚡",
-                self.anim_body,
-                self.anim_action,
-                count,
-                dt.as_secs_f64() * 1000.0
-            );
-            return;
-        }
-
-        self.status_message = format!(
-            "Nenhum quadro encontrado para Body {} Action {}.",
-            self.anim_body, self.anim_action
-        );
     }
 
     fn update_animation_texture(&mut self, ctx: &egui::Context) {
@@ -2532,6 +2472,7 @@ impl eframe::App for UoFiddlerApp {
                     resolver: &self.anim_resolver,
                     mul_anim: &self.anim_indices,
                     uop_anim: &self.uop_anim_index,
+                    equipment_bodies: &self.equipment_bodies,
                     art: self.art_index.as_ref(),
                 });
                 self.paperdoll_tab.show(ui, ctx, data.as_ref());
