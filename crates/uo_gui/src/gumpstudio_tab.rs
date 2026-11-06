@@ -62,6 +62,7 @@ pub struct GumpStudioTab {
     html_tex: HashMap<(i32, String), Option<egui::TextureHandle>>,
     html_color: [u8; 3],
     resizepic_open: bool,
+    multi: Vec<usize>,
     favorites: Favorites,
     fav_name: String,
     resizepic_search: String,
@@ -89,6 +90,7 @@ impl Default for GumpStudioTab {
             html_tex: HashMap::new(),
             html_color: [255, 80, 80],
             resizepic_open: false,
+            multi: Vec::new(),
             favorites: Self::load_favorites(),
             fav_name: String::new(),
             resizepic_search: String::new(),
@@ -106,7 +108,7 @@ impl GumpStudioTab {
     fn sample_doc() -> GumpDoc {
         let mut d = GumpDoc::default();
         d.name = "ExampleGump".into();
-        let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind, repeat: None };
+        let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind, repeat: None, group: 0 };
         d.elements = vec![
             mk("background", ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 240),
             mk("title", ElementKind::Label { text: "Example gump".into(), hue: 52, font: 1, ascii: false }, 20, 15, 0, 0),
@@ -452,10 +454,34 @@ impl GumpStudioTab {
                     page: self.view_page,
                     kind,
                     repeat: None,
+                    group: 0,
                 });
                 self.selected = Some(n);
             }
         }
+        // groups: Ctrl+click adds elements to the selection; grouped elements move together
+        ui.label(t!("gs.group.hint"));
+        ui.horizontal(|ui| {
+            let mut sel: Vec<usize> = self.multi.clone();
+            if let Some(s) = self.selected {
+                if !sel.contains(&s) {
+                    sel.push(s);
+                }
+            }
+            if ui.add_enabled(sel.len() > 1, egui::Button::new(t!("gs.group.make"))).clicked() {
+                self.push_undo();
+                self.doc.group_elements(&sel);
+            }
+            let has_group = self.selected.and_then(|i| self.doc.elements.get(i)).map_or(false, |e| e.group != 0);
+            if ui.add_enabled(has_group, egui::Button::new(t!("gs.group.dissolve"))).clicked() {
+                if let Some(i) = self.selected {
+                    self.push_undo();
+                    for k in self.doc.group_members(i) {
+                        self.doc.elements[k].group = 0;
+                    }
+                }
+            }
+        });
         // favorites: saved combinations of elements, inserted into any gump
         ui.collapsing(t!("gs.fav.title"), |ui| {
             ui.horizontal(|ui| {
@@ -495,7 +521,11 @@ impl GumpStudioTab {
                 });
             }
             if let Some(i) = insert {
-                let placed = self.favorites.items[i].instantiate(20, 20, self.view_page);
+                let mut placed = self.favorites.items[i].instantiate(20, 20, self.view_page);
+                let base = self.doc.elements.iter().map(|e| e.group).max().unwrap_or(0);
+                for e in placed.iter_mut().filter(|e| e.group != 0) {
+                    e.group += base;
+                }
                 self.push_undo();
                 let first = self.doc.elements.len();
                 self.doc.elements.extend(placed);
@@ -604,6 +634,10 @@ impl GumpStudioTab {
             ui.horizontal(|ui| {
                 ui.label("Página:");
                 ui.add(egui::DragValue::new(&mut e.page).range(0..=50));
+            });
+            ui.horizontal(|ui| {
+                ui.label(t!("gs.group.label"));
+                ui.add(egui::DragValue::new(&mut e.group).range(0..=999));
             });
             // repeated element: exported as a loop in RunUO / POL / Sphere
             let mut repeating = e.repeat.is_some();
@@ -945,6 +979,16 @@ impl GumpStudioTab {
 
             let resp = ui.interact(r, ui.id().with(("gs_el", i)), egui::Sense::click_and_drag());
             if resp.clicked() || resp.drag_started() {
+                if ui.input(|inp| inp.modifiers.ctrl || inp.modifiers.command) {
+                    // Ctrl+click toggles the element in the multiple selection
+                    if let Some(pos) = self.multi.iter().position(|&m| m == i) {
+                        self.multi.remove(pos);
+                    } else {
+                        self.multi.push(i);
+                    }
+                } else if !self.multi.contains(&i) {
+                    self.multi.clear();
+                }
                 self.selected = Some(i);
                 clicked_elem = true;
             }
@@ -954,14 +998,18 @@ impl GumpStudioTab {
             }
             if resp.dragged() {
                 let delta = resp.drag_delta() / z;
-                let snap = self.snap.max(1) as f32;
-                if let Some(el) = self.doc.elements.get_mut(i) {
-                    // accumulate fractional movement in the sub-pixel part of the position
-                    el.x += delta.x.round() as i32;
-                    el.y += delta.y.round() as i32;
-                    if snap > 1.0 && resp.drag_stopped() {
-                        el.x = (el.x as f32 / snap).round() as i32 * snap as i32;
-                        el.y = (el.y as f32 / snap).round() as i32 * snap as i32;
+                // the dragged element moves with its group or with the whole multiple selection
+                let members: Vec<usize> = if self.multi.contains(&i) {
+                    let mut m = self.multi.clone();
+                    m.push(i);
+                    m
+                } else {
+                    self.doc.group_members(i)
+                };
+                for k in members {
+                    if let Some(el) = self.doc.elements.get_mut(k) {
+                        el.x += delta.x.round() as i32;
+                        el.y += delta.y.round() as i32;
                     }
                 }
             }
@@ -972,8 +1020,11 @@ impl GumpStudioTab {
                     el.y = (el.y as f32 / s as f32).round() as i32 * s;
                 }
             }
+            let in_group = self.selected.map_or(false, |sel| self.doc.group_members(sel).contains(&i));
             if self.selected == Some(i) {
                 painter.rect_stroke(r.expand(1.0), 0.0, egui::Stroke::new(1.5_f32, egui::Color32::from_rgb(255, 200, 60)));
+            } else if self.multi.contains(&i) || in_group {
+                painter.rect_stroke(r.expand(1.0), 0.0, egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(120, 190, 255)));
             }
         }
         // resize handles of the selected element (right edge, bottom edge, corner)
