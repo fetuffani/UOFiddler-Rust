@@ -9,6 +9,7 @@ use eframe::egui;
 use uo_core::*;
 
 mod files_tab;
+mod gumpstudio_tab;
 mod packets_tab;
 mod paperdoll_tab;
 
@@ -88,10 +89,11 @@ pub enum UoTab {
     Packets,
     Files,
     Paperdoll,
+    GumpStudio,
 }
 
 impl UoTab {
-    pub const ALL: [UoTab; 20] = [
+    pub const ALL: [UoTab; 21] = [
         UoTab::Items,
         UoTab::LandTiles,
         UoTab::Gumps,
@@ -112,6 +114,7 @@ impl UoTab {
         UoTab::Packets,
         UoTab::Files,
         UoTab::Paperdoll,
+        UoTab::GumpStudio,
     ];
 
     pub fn name(&self) -> &'static str {
@@ -136,6 +139,7 @@ impl UoTab {
             UoTab::Packets => "📡 Comunicação",
             UoTab::Files => "📁 Arquivos",
             UoTab::Paperdoll => "🧍 Paperdoll",
+            UoTab::GumpStudio => "🧩 GumpStudio",
         }
     }
 
@@ -147,6 +151,7 @@ impl UoTab {
             | UoTab::Gumps
             | UoTab::Animations
             | UoTab::Paperdoll
+            | UoTab::GumpStudio
             | UoTab::Multis => TabCategory::Art,
 
             UoTab::Hues
@@ -517,6 +522,7 @@ pub struct UoFiddlerApp {
     packets_tab: packets_tab::PacketsTab,
     files_tab: files_tab::FilesTab,
     paperdoll_tab: paperdoll_tab::PaperdollTab,
+    gumpstudio_tab: gumpstudio_tab::GumpStudioTab,
     uop_anim_index: UopAnimationIndex,
     tiledata: Option<TileDataManager>,
     hues: Option<HuesManager>,
@@ -732,6 +738,7 @@ impl Default for UoFiddlerApp {
             packets_tab: packets_tab::PacketsTab::default(),
             files_tab: files_tab::FilesTab::default(),
             paperdoll_tab: paperdoll_tab::PaperdollTab::default(),
+            gumpstudio_tab: gumpstudio_tab::GumpStudioTab::default(),
             uop_anim_index: UopAnimationIndex::new(),
             tiledata: None,
             hues: None,
@@ -2513,6 +2520,15 @@ impl eframe::App for UoFiddlerApp {
             UoTab::AnimData => self.render_animdata_tab(ui, ctx),
             UoTab::GameData => self.render_gamedata_tab(ui),
             UoTab::Packets => self.packets_tab.show(ui),
+            UoTab::GumpStudio => {
+                let data = gumpstudio_tab::GumpStudioData {
+                    gump_index: self.gump_index.as_ref(),
+                    art: self.art_index.as_ref(),
+                    hues: self.hues.as_ref(),
+                    cliloc: self.cliloc.as_ref(),
+                };
+                self.gumpstudio_tab.show(ui, ctx, &data);
+            }
             UoTab::Paperdoll => {
                 let data = self.tiledata.as_ref().map(|td| paperdoll_tab::PaperdollData {
                     tiledata: td,

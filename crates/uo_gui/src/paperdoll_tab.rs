@@ -145,7 +145,7 @@ fn blit_alpha(dst: &mut [u8], dw: usize, dh: usize, src: &[u8], sw: usize, sh: u
     }
 }
 
-fn decode_gump_id(gi: &FileIndex, id: u32) -> Option<GumpBitmap> {
+pub(crate) fn decode_gump_id(gi: &FileIndex, id: u32) -> Option<GumpBitmap> {
     let id = id as usize;
     let data = gi.get_data(id)?;
     let entry = gi.entries[id];
