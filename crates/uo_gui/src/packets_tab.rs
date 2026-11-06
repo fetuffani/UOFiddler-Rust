@@ -135,7 +135,7 @@ impl PacketsTab {
             });
             if matches!(self.section, Section::ServerToClient | Section::ClientToServer | Section::GumpCommands) {
                 ui.horizontal(|ui| {
-                    ui.label("🔍");
+                    ui.label(t!("common.search_icon"));
                     ui.text_edit_singleline(&mut self.search)
                         .on_hover_text(t!("protocol.search.tip"));
                     if self.section != Section::GumpCommands {

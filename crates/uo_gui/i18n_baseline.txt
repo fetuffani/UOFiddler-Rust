@@ -1,7 +1,4 @@
-src/files_tab.rs 7
-src/gumpstudio_tab.rs 64
+src/gumpstudio_tab.rs 13
 src/main.rs 22
 src/map/editor/bar.rs 2
-src/map/ui/picker.rs 1
-src/packets_tab.rs 1
 src/paperdoll_tab.rs 2
