@@ -27,6 +27,7 @@ Traditional UOFiddler on Linux via Wine or Mono is prone to graphical glitches, 
 6. **Native Audio Engine**: Direct PCM WAV playback using `rodio` over PipeWire, PulseAudio, and ALSA without external audio drivers.
 7. **Vertical Zoom Slider Tool**: 1:1 true-size rendering with vertical sliders (0.5x to 5.0x) on previews for Items, Land Tiles, TileData, Textures, and Animations.
 8. **Isometric Map Viewer & Map Editor**: The world drawn like the game client (GPU, real art, sloped land), from `mapN.mul` or `mapNLegacyMUL.uop`, and a full map editor that **saves straight into the client files** (with `.bak` backups), for shard admins.
+9. **Multilingual interface**: English and Brazilian Portuguese (system language detected on first run, switchable in the options); every text goes through the translation tables in `crates/uo_gui/locales`, so a new language is one more file.
 
 ---
 
@@ -54,7 +55,7 @@ Tabs are grouped in three categories at the top of the window: **Arte** (art), *
 | **🎬 AnimData** | Frame animation timing and delay tables (`animdata.mul`) with live static art preview. |
 | **🎮 GameData** | Enhanced Client 3D configuration inspector (`GameData.uop`). Decodes all 79 configuration tables with **Structured Grid** and **Raw Monospace** views, row filtering, and batch CSV export. |
 | **🧍 Paperdoll** | Paperdoll builder: the body animation and the paperdoll gump side by side, backpack-style item slots and hues (`Equipconv.def`, `gump.def`). |
-| **🧩 GumpStudio** | Visual gump designer: backgrounds, images, items, text, HTML/cliloc, buttons, checkboxes, radios, text entries and alpha regions, drawn with the client's art and **UO fonts** (`unifont*.mul`, `fonts.mul`). Saves and opens JSON and exports to **RunUO (C#)**, **Sphere** and **POL**. |
+| **🧩 GumpStudio** | Visual gump designer: backgrounds, images, items, text, HTML/cliloc, buttons, checkboxes, radios, text entries and alpha regions, drawn with the client's art and **UO fonts** (`unifont*.mul`, `fonts.mul`). Saves and opens JSON and exports to **RunUO (C#)**, **Sphere** and **POL**. Visual pickers for images, items, buttons, checkboxes and radios, a resizepic browser (with a manual valid/invalid list), HTML text, repeat loops, favorites and groups. |
 | **📡 Comunicação** | Static reference of the client's packets (server to client and client to server) and gump layout commands, with search and filters. |
 | **📁 Arquivos** | Browser for every client file: text/def files as tables, IFF localization, UOP browser with entries and preview, hex view, `Multimap.rle` and `facet0N.mul` as images, and the **UOP ↔ MUL converter** (art, gumps, maps). |
 

@@ -27,6 +27,7 @@ A execução do UOFiddler-Rust original em C# via Wine ou Mono no Linux causa fr
 6. **Áudio Nativo sem Drivers Extras**: Reprodução de áudio PCM WAV diretamente via `rodio` em servidores PipeWire, PulseAudio e ALSA.
 7. **Barra Vertical de Zoom**: Visualização em tamanho real (1:1) com barra vertical de zoom (0.5x a 5.0x) nas abas de Itens, Land Tiles, TileData, Texturas e Animações.
 8. **Mapa Isométrico e Editor de Mapa**: O mundo desenhado como no cliente do jogo (GPU, arte real, terreno inclinado), a partir de `mapN.mul` ou `mapNLegacyMUL.uop`, e um editor de mapa completo que **grava direto nos arquivos do cliente** (com backup `.bak`), para admins de shard.
+9. **Interface multilíngue**: inglês e português do Brasil (idioma do sistema detectado na primeira execução, trocável nas opções); todo texto passa pelas tabelas de tradução em `crates/uo_gui/locales`, então um novo idioma é só mais um arquivo.
 
 ---
 
@@ -54,7 +55,7 @@ As abas ficam agrupadas em três categorias no topo da janela: **Arte**, **Dados
 | **🎬 AnimData** | Tabela de taxas de quadros e intervalos de animação (`animdata.mul`) com pré-visualização estática do item. |
 | **🎮 GameData** | Inspetor de configurações do cliente 3D Enhanced (`GameData.uop`). Decodifica todas as **79 tabelas de configuração** com modos **📊 Tabela Estruturada** e **📝 Texto Raw**, busca interna por linhas e exportador em lote para CSV. |
 | **🧍 Paperdoll** | Montador de paperdoll: a animação do corpo e o gump de paperdoll lado a lado, com slots de itens estilo mochila e hues (`Equipconv.def`, `gump.def`). |
-| **🧩 GumpStudio** | Editor visual de gumps: fundos, imagens, itens, texto, HTML/cliloc, botões, checkboxes, radios, entradas de texto e regiões alfa, com a arte do cliente e as **fontes do UO** (`unifont*.mul`, `fonts.mul`). Salva e abre JSON e exporta para **RunUO (C#)**, **Sphere** e **POL**. |
+| **🧩 GumpStudio** | Editor visual de gumps: fundos, imagens, itens, texto, HTML/cliloc, botões, checkboxes, radios, entradas de texto e regiões alfa, com a arte do cliente e as **fontes do UO** (`unifont*.mul`, `fonts.mul`). Salva e abre JSON e exporta para **RunUO (C#)**, **Sphere** e **POL**. Seletores visuais para imagens, itens, botões, checkboxes e radios, navegador de resizepics (com lista manual de válidos/inválidos), texto HTML, laços de repetição, favoritos e grupos. |
 | **📡 Comunicação** | Referência estática dos pacotes do cliente (servidor para cliente e cliente para servidor) e dos comandos de layout de gump, com busca e filtros. |
 | **📁 Arquivos** | Navegador de todos os arquivos do cliente: texto/def em tabela, localização IFF, navegador de UOP com entradas e prévia, visão hex, `Multimap.rle` e `facet0N.mul` como imagem, e o **conversor UOP ↔ MUL** (art, gumps, mapas). |
 
