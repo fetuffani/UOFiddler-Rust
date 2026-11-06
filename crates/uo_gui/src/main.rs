@@ -451,45 +451,46 @@ pub enum AnimCategoryFilter {
     UopModern,   // is_uop
 }
 
+/// (facet, locale key `map.preset.<n>`, x, y).
 pub const PRESET_LOCATIONS: [(usize, &str, u32, u32); 32] = [
     // Felucca (0)
-    (0, "Britain Bank [Felucca]", 1420, 1690),
-    (0, "Lord British's Castle", 1390, 1625),
-    (0, "West Britain Bank", 1435, 1680),
-    (0, "Moonglow Bank", 4470, 1175),
-    (0, "Trinsic Bank", 1815, 2820),
-    (0, "Yew Bank", 540, 980),
-    (0, "Minoc Bank", 2470, 540),
-    (0, "Skara Brae", 630, 2230),
-    (0, "Jhelom", 1400, 3810),
-    (0, "Magincia", 3730, 2160),
-    (0, "Buccaneer's Den", 2705, 2160),
-    (0, "Vesper Bank", 2895, 675),
-    (0, "Cove", 2240, 1210),
-    (0, "Ocllo", 3650, 2520),
-    (0, "Nujel'm", 3750, 1270),
-    (0, "Delucia [Lost Lands]", 5260, 3990),
-    (0, "Papua [Lost Lands]", 5730, 3210),
-    (0, "Wind", 5165, 245),
+    (0, "map.preset.01", 1420, 1690),
+    (0, "map.preset.02", 1390, 1625),
+    (0, "map.preset.03", 1435, 1680),
+    (0, "map.preset.04", 4470, 1175),
+    (0, "map.preset.05", 1815, 2820),
+    (0, "map.preset.06", 540, 980),
+    (0, "map.preset.07", 2470, 540),
+    (0, "map.preset.08", 630, 2230),
+    (0, "map.preset.09", 1400, 3810),
+    (0, "map.preset.10", 3730, 2160),
+    (0, "map.preset.11", 2705, 2160),
+    (0, "map.preset.12", 2895, 675),
+    (0, "map.preset.13", 2240, 1210),
+    (0, "map.preset.14", 3650, 2520),
+    (0, "map.preset.15", 3750, 1270),
+    (0, "map.preset.16", 5260, 3990),
+    (0, "map.preset.17", 5730, 3210),
+    (0, "map.preset.18", 5165, 245),
     // Trammel (1)
-    (1, "Britain Bank [Trammel]", 1420, 1690),
-    (1, "Lord British's Castle", 1390, 1625),
-    (1, "Moonglow Bank", 4470, 1175),
-    (1, "Trinsic Bank", 1815, 2820),
-    (1, "Yew Bank", 540, 980),
-    (1, "Minoc Bank", 2470, 540),
-    (1, "Haven / New Haven", 3500, 2570),
+    (1, "map.preset.19", 1420, 1690),
+    (1, "map.preset.02", 1390, 1625),
+    (1, "map.preset.04", 4470, 1175),
+    (1, "map.preset.05", 1815, 2820),
+    (1, "map.preset.06", 540, 980),
+    (1, "map.preset.07", 2470, 540),
+    (1, "map.preset.20", 3500, 2570),
     // Ilshenar (2)
-    (2, "Ilshenar Entrance", 845, 640),
-    (2, "Gargoyle City", 850, 680),
+    (2, "map.preset.21", 845, 640),
+    (2, "map.preset.22", 850, 680),
     // Malas (3)
-    (3, "Luna Bank [Malas]", 990, 520),
-    (3, "Umbra Bank [Malas]", 2090, 1340),
+    (3, "map.preset.23", 990, 520),
+    (3, "map.preset.24", 2090, 1340),
     // Tokuno (4)
-    (4, "Zento Bank [Tokuno]", 730, 1245),
+    (4, "map.preset.25", 730, 1245),
     // Ter Mur (5)
-    (5, "Royal City [Ter Mur]", 850, 3520),
-    (5, "Holy City", 995, 3975),
+    (5, "map.preset.26", 850, 3520),
+    (5, "map.preset.27", 995, 3975),
 ];
 
 pub struct UoFiddlerApp {
@@ -5129,7 +5130,7 @@ impl UoFiddlerApp {
                         .width(150.0)
                         .show_ui(ui, |ui| {
                             for (m, name, x, y) in PRESET_LOCATIONS {
-                                if m == self.map_id && ui.selectable_label(false, name).clicked() {
+                                if m == self.map_id && ui.selectable_label(false, crate::i18n::tr(name)).clicked() {
                                     self.map_x = x;
                                     self.map_y = y;
                                     changed = true;
