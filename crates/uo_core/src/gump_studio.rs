@@ -471,6 +471,52 @@ fn tile_into(dst: &mut [u8], dw: usize, dh: usize, src: &GumpBitmap, x0: i32, y0
     }
 }
 
+/// A saved combination of elements (backgrounds, images, buttons...) that can be inserted into any gump.
+/// Positions are stored relative to the top-left corner of the group.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GumpFavorite {
+    pub name: String,
+    pub elements: Vec<GumpElement>,
+}
+
+impl GumpFavorite {
+    /// Builds a favorite from `elements`, moving them so the top-left corner of the group is (0, 0).
+    pub fn from_elements(name: &str, elements: &[GumpElement]) -> Self {
+        let (min_x, min_y) = (elements.iter().map(|e| e.x).min().unwrap_or(0), elements.iter().map(|e| e.y).min().unwrap_or(0));
+        let elements = elements.iter().cloned().map(|mut e| {
+            e.x -= min_x;
+            e.y -= min_y;
+            e
+        }).collect();
+        Self { name: name.to_string(), elements }
+    }
+
+    /// Copies of the elements placed with the group's top-left corner at (x, y) on `page`.
+    pub fn instantiate(&self, x: i32, y: i32, page: u32) -> Vec<GumpElement> {
+        self.elements.iter().cloned().map(|mut e| {
+            e.x += x;
+            e.y += y;
+            e.page = page;
+            e
+        }).collect()
+    }
+}
+
+/// The user's list of favorites, saved as JSON.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Favorites {
+    pub items: Vec<GumpFavorite>,
+}
+
+impl Favorites {
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_default()
+    }
+    pub fn from_json(s: &str) -> Result<Self, String> {
+        serde_json::from_str(s).map_err(|e| e.to_string())
+    }
+}
+
 /// Gump ranges that pass the structural rules but are known not to be frames (curated by the
 /// project owner): 2240..=2294 are the spellbook icon pages.
 pub const KNOWN_NON_FRAMES: [std::ops::RangeInclusive<u32>; 1] = [2240..=2294];
@@ -597,6 +643,23 @@ mod tests {
             el(ElementKind::Item { item_id: 0xEED, hue: 0 }, 200, 20, 0, 0, 0),
         ];
         d
+    }
+
+    #[test]
+    fn favorites_keep_relative_positions_and_roundtrip() {
+        let els = vec![
+            el(ElementKind::Background { gump_id: 9200 }, 50, 40, 200, 100, 0),
+            el(ElementKind::Label { text: "t".into(), hue: 0, font: 1, ascii: false }, 60, 55, 0, 0, 2),
+        ];
+        let fav = GumpFavorite::from_elements("frame", &els);
+        assert_eq!((fav.elements[0].x, fav.elements[0].y), (0, 0));
+        assert_eq!((fav.elements[1].x, fav.elements[1].y), (10, 15));
+        let placed = fav.instantiate(100, 20, 3);
+        assert_eq!((placed[1].x, placed[1].y), (110, 35));
+        assert!(placed.iter().all(|e| e.page == 3));
+        let list = Favorites { items: vec![fav] };
+        assert_eq!(Favorites::from_json(&list.to_json()).unwrap(), list);
+        assert!(Favorites::from_json("not json").is_err());
     }
 
     #[test]

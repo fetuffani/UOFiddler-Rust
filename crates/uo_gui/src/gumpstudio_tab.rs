@@ -62,6 +62,8 @@ pub struct GumpStudioTab {
     html_tex: HashMap<(i32, String), Option<egui::TextureHandle>>,
     html_color: [u8; 3],
     resizepic_open: bool,
+    favorites: Favorites,
+    fav_name: String,
     resizepic_search: String,
     resizepic_list: Option<Vec<u32>>,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
@@ -87,6 +89,8 @@ impl Default for GumpStudioTab {
             html_tex: HashMap::new(),
             html_color: [255, 80, 80],
             resizepic_open: false,
+            favorites: Self::load_favorites(),
+            fav_name: String::new(),
             resizepic_search: String::new(),
             resizepic_list: None,
             text_tex: HashMap::new(),
@@ -114,6 +118,23 @@ impl GumpStudioTab {
             mk("ok_text", ElementKind::Label { text: "OK".into(), hue: 0, font: 1, ascii: false }, 55, 132, 0, 0),
         ];
         d
+    }
+
+    fn favorites_path() -> std::path::PathBuf {
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
+        std::path::PathBuf::from(home).join(".config/uofiddler/gumpstudio_favorites.json")
+    }
+
+    fn load_favorites() -> Favorites {
+        std::fs::read_to_string(Self::favorites_path()).ok().and_then(|t| Favorites::from_json(&t).ok()).unwrap_or_default()
+    }
+
+    fn save_favorites(&self) {
+        let p = Self::favorites_path();
+        if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(p, self.favorites.to_json());
     }
 
     fn push_undo(&mut self) {
@@ -435,6 +456,59 @@ impl GumpStudioTab {
                 self.selected = Some(n);
             }
         }
+        // favorites: saved combinations of elements, inserted into any gump
+        ui.collapsing(t!("gs.fav.title"), |ui| {
+            ui.horizontal(|ui| {
+                ui.label(t!("gs.fav.name"));
+                ui.text_edit_singleline(&mut self.fav_name);
+            });
+            let name_or = |this: &Self, fallback: &str| if this.fav_name.trim().is_empty() { fallback.to_string() } else { this.fav_name.trim().to_string() };
+            let mut changed = false;
+            if ui.add_enabled(self.selected.map_or(false, |i| i < self.doc.elements.len()), egui::Button::new(t!("gs.fav.save_selected"))).clicked() {
+                if let Some(e) = self.selected.and_then(|i| self.doc.elements.get(i)).cloned() {
+                    let name = name_or(self, &e.name);
+                    self.favorites.items.push(GumpFavorite::from_elements(&name, &[e]));
+                    changed = true;
+                }
+            }
+            if ui.add_enabled(!self.doc.elements.is_empty(), egui::Button::new(t!("gs.fav.save_all"))).clicked() {
+                let name = name_or(self, &self.doc.name.clone());
+                self.favorites.items.push(GumpFavorite::from_elements(&name, &self.doc.elements));
+                changed = true;
+            }
+            if changed {
+                self.fav_name.clear();
+            }
+            if self.favorites.items.is_empty() {
+                ui.weak(t!("gs.fav.empty"));
+            }
+            let (mut insert, mut delete): (Option<usize>, Option<usize>) = (None, None);
+            for (i, f) in self.favorites.items.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    ui.label(format!("{} ({})", f.name, t!("gs.fav.count", n = f.elements.len())));
+                    if ui.small_button(t!("gs.fav.insert")).clicked() {
+                        insert = Some(i);
+                    }
+                    if ui.small_button(t!("gs.fav.delete")).clicked() {
+                        delete = Some(i);
+                    }
+                });
+            }
+            if let Some(i) = insert {
+                let placed = self.favorites.items[i].instantiate(20, 20, self.view_page);
+                self.push_undo();
+                let first = self.doc.elements.len();
+                self.doc.elements.extend(placed);
+                self.selected = (first < self.doc.elements.len()).then_some(first);
+            }
+            if let Some(i) = delete {
+                self.favorites.items.remove(i);
+                changed = true;
+            }
+            if changed {
+                self.save_favorites();
+            }
+        });
         ui.separator();
         let mut action: Option<(usize, i8)> = None; // -1 up, 1 down, 2 dup, 3 delete
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
