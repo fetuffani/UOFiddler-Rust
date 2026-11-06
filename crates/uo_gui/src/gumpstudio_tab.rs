@@ -362,21 +362,21 @@ impl GumpStudioTab {
         if !self.export_text.is_empty() {
             egui::TopBottomPanel::bottom("gs_export").resizable(true).default_height(230.0).show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.strong(format!("Código exportado - {}", self.lang.label()));
-                    if ui.button("📋 Copiar").clicked() {
+                    ui.strong(t!("gs.export.title", lang = self.lang.label()));
+                    if ui.button(t!("gs.export.copy")).clicked() {
                         ctx.copy_text(self.export_text.clone());
-                        self.status = "Código copiado".into();
+                        self.status = t!("gs.export.copied");
                     }
-                    if ui.button("💾 Salvar...").clicked() {
+                    if ui.button(t!("gs.save")).clicked() {
                         let fname = format!("{}.{}", self.doc.ident(), self.lang.ext());
                         if let Some(p) = rfd::FileDialog::new().set_file_name(&fname).save_file() {
                             self.status = match std::fs::write(&p, &self.export_text) {
-                                Ok(_) => format!("Salvo em {}", p.display()),
-                                Err(e) => format!("Erro ao salvar: {e}"),
+                                Ok(_) => t!("gs.saved", path = p.display()),
+                                Err(e) => t!("gs.save_error", err = e),
                             };
                         }
                     }
-                    if ui.button("✖ Fechar").clicked() {
+                    if ui.button(t!("gs.close")).clicked() {
                         self.export_text.clear();
                     }
                 });
@@ -400,43 +400,43 @@ impl GumpStudioTab {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             ui.strong("🧩 GumpStudio");
-            ui.label("Nome:");
+            ui.label(t!("common.name"));
             ui.add(egui::TextEdit::singleline(&mut self.doc.name).desired_width(120.0));
-            ui.label("X:");
+            ui.label(t!("gs.x"));
             ui.add(egui::DragValue::new(&mut self.doc.x));
-            ui.label("Y:");
+            ui.label(t!("gs.y"));
             ui.add(egui::DragValue::new(&mut self.doc.y));
-            ui.checkbox(&mut self.doc.movable, "movível");
-            ui.checkbox(&mut self.doc.closable, "fechável");
-            ui.checkbox(&mut self.doc.disposable, "descartável");
+            ui.checkbox(&mut self.doc.movable, t!("gs.movable"));
+            ui.checkbox(&mut self.doc.closable, t!("gs.closable"));
+            ui.checkbox(&mut self.doc.disposable, t!("gs.disposable"));
             ui.separator();
-            if ui.button("🆕 Novo").clicked() {
+            if ui.button(t!("gs.new")).clicked() {
                 self.push_undo();
                 self.doc = GumpDoc::default();
                 self.selected = None;
             }
-            if ui.button("📂 Abrir...").clicked() {
+            if ui.button(t!("gs.open")).clicked() {
                 if let Some(p) = rfd::FileDialog::new().add_filter("GumpStudio JSON", &["json"]).pick_file() {
                     match std::fs::read_to_string(&p).map_err(|e| e.to_string()).and_then(|s| GumpDoc::from_json(&s)) {
                         Ok(doc) => {
                             self.push_undo();
                             self.doc = doc;
                             self.selected = None;
-                            self.status = format!("Aberto {}", p.display());
+                            self.status = t!("gs.opened", path = p.display());
                         }
-                        Err(e) => self.status = format!("Erro ao abrir: {e}"),
+                        Err(e) => self.status = t!("gs.open_error", err = e),
                     }
                 }
             }
-            if ui.button("💾 Salvar...").clicked() {
+            if ui.button(t!("gs.save")).clicked() {
                 if let Some(p) = rfd::FileDialog::new().set_file_name(format!("{}.json", self.doc.ident())).save_file() {
                     self.status = match std::fs::write(&p, self.doc.to_json()) {
-                        Ok(_) => format!("Salvo em {}", p.display()),
-                        Err(e) => format!("Erro ao salvar: {e}"),
+                        Ok(_) => t!("gs.saved", path = p.display()),
+                        Err(e) => t!("gs.save_error", err = e),
                     };
                 }
             }
-            if ui.add_enabled(!self.undo.is_empty(), egui::Button::new("↶ Desfazer")).clicked() {
+            if ui.add_enabled(!self.undo.is_empty(), egui::Button::new(t!("gs.undo"))).clicked() {
                 if let Some(prev) = self.undo.pop() {
                     self.doc = prev;
                     self.selected = None;
@@ -444,7 +444,7 @@ impl GumpStudioTab {
             }
         });
         ui.horizontal(|ui| {
-            ui.label("Exportar:");
+            ui.label(t!("gs.export"));
             for l in [Lang::RunUO, Lang::Sphere, Lang::Pol] {
                 if ui.button(l.label()).clicked() {
                     self.lang = l;
@@ -456,21 +456,21 @@ impl GumpStudioTab {
                 }
             }
             ui.separator();
-            ui.label("Página:");
+            ui.label(t!("gs.page"));
             let pages = self.doc.pages();
             for p in &pages {
-                let name = if *p == 0 { "0 (sempre)".to_string() } else { p.to_string() };
+                let name = if *p == 0 { t!("gs.page.always") } else { p.to_string() };
                 if ui.selectable_label(self.view_page == *p, name).clicked() {
                     self.view_page = *p;
                 }
             }
-            if ui.small_button("+ página").clicked() {
+            if ui.small_button(t!("gs.page.add")).clicked() {
                 self.view_page = pages.last().copied().unwrap_or(0) + 1;
             }
             ui.separator();
-            ui.label("Zoom:");
+            ui.label(t!("gs.zoom"));
             ui.add(egui::Slider::new(&mut self.zoom, 0.5..=3.0));
-            ui.label("Grade:");
+            ui.label(t!("gs.grid"));
             ui.add(egui::DragValue::new(&mut self.snap).range(1..=32));
             if !self.status.is_empty() {
                 ui.separator();
@@ -481,24 +481,24 @@ impl GumpStudioTab {
     }
 
     fn element_list(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Elementos");
-        ui.label("Adicionar:");
+        ui.heading(t!("gs.elements"));
+        ui.label(t!("gs.add"));
         let mut add: Option<&str> = None;
         ui.horizontal_wrapped(|ui| {
             for (key, label) in [
-                ("background", "Fundo"),
-                ("image", "Imagem"),
-                ("tiled", "Repetida"),
-                ("item", "Item"),
-                ("label", "Texto"),
-                ("html", "HTML"),
-                ("button", "Botão"),
-                ("checkbox", "Check"),
-                ("radio", "Radio"),
-                ("entry", "Entrada"),
-                ("alpha", "Alfa"),
+                ("background", t!("gs.add.background")),
+                ("image", t!("gs.add.image")),
+                ("tiled", t!("gs.add.tiled")),
+                ("item", t!("gs.add.item")),
+                ("label", t!("gs.add.label")),
+                ("html", t!("gs.add.html")),
+                ("button", t!("gs.add.button")),
+                ("checkbox", t!("gs.add.checkbox")),
+                ("radio", t!("gs.add.radio")),
+                ("entry", t!("gs.add.entry")),
+                ("alpha", t!("gs.add.alpha")),
             ] {
-                if ui.small_button(label).clicked() {
+                if ui.small_button(&label).clicked() {
                     add = Some(key);
                 }
             }
@@ -613,16 +613,16 @@ impl GumpStudioTab {
                         self.selected = Some(i);
                     }
                     if self.selected == Some(i) {
-                        if ui.small_button("⬆").on_hover_text("Trazer para frente").clicked() {
+                        if ui.small_button("⬆").on_hover_text(t!("gs.el.front")).clicked() {
                             action = Some((i, 1));
                         }
-                        if ui.small_button("⬇").on_hover_text("Enviar para trás").clicked() {
+                        if ui.small_button("⬇").on_hover_text(t!("gs.el.back")).clicked() {
                             action = Some((i, -1));
                         }
-                        if ui.small_button("⎘").on_hover_text("Duplicar").clicked() {
+                        if ui.small_button("⎘").on_hover_text(t!("gs.el.dup")).clicked() {
                             action = Some((i, 2));
                         }
-                        if ui.small_button("🗑").on_hover_text("Excluir").clicked() {
+                        if ui.small_button("🗑").on_hover_text(t!("gs.fav.delete")).clicked() {
                             action = Some((i, 3));
                         }
                     }
@@ -678,9 +678,9 @@ impl GumpStudioTab {
     }
 
     fn properties(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, d: &GumpStudioData) {
-        ui.heading("Propriedades");
+        ui.heading(t!("gs.props"));
         let Some(i) = self.selected.filter(|&i| i < self.doc.elements.len()) else {
-            ui.label("Selecione um elemento no canvas ou na lista.");
+            ui.label(t!("gs.props.none"));
             return;
         };
         let before = self.doc.elements[i].clone();
@@ -689,25 +689,25 @@ impl GumpStudioTab {
             let e = &mut self.doc.elements[i];
             ui.label(e.kind.label());
             ui.horizontal(|ui| {
-                ui.label("Nome:");
+                ui.label(t!("common.name"));
                 ui.text_edit_singleline(&mut e.name);
             });
             ui.horizontal(|ui| {
-                ui.label("X:");
+                ui.label(t!("gs.x"));
                 ui.add(egui::DragValue::new(&mut e.x));
-                ui.label("Y:");
+                ui.label(t!("gs.y"));
                 ui.add(egui::DragValue::new(&mut e.y));
             });
             if e.kind.is_sized() {
                 ui.horizontal(|ui| {
-                    ui.label("Largura:");
+                    ui.label(t!("gs.width"));
                     ui.add(egui::DragValue::new(&mut e.w).range(1..=2000));
-                    ui.label("Altura:");
+                    ui.label(t!("gs.height"));
                     ui.add(egui::DragValue::new(&mut e.h).range(1..=2000));
                 });
             }
             ui.horizontal(|ui| {
-                ui.label("Página:");
+                ui.label(t!("gs.page"));
                 ui.add(egui::DragValue::new(&mut e.page).range(0..=50));
             });
             ui.horizontal(|ui| {
@@ -736,41 +736,41 @@ impl GumpStudioTab {
             ui.separator();
             match &mut e.kind {
                 ElementKind::Background { gump_id } => {
-                    Self::gump_field(ui, "Gump (resizepic):", gump_id);
+                    Self::gump_field(ui, &t!("gs.f.resizepic_gump"), gump_id);
                     if ui.button(t!("gs.resizepic.browse")).clicked() {
                         self.picker_mode = Some(PickerMode::Resizepic);
                     }
                     preview = Some(PreviewKind::Resizepic(*gump_id));
                 }
                 ElementKind::Image { gump_id, hue } => {
-                    Self::gump_field(ui, "Gump:", gump_id);
+                    Self::gump_field(ui, &t!("gs.f.gump"), gump_id);
                     if ui.button(t!("gs.picker.browse_gump")).clicked() {
                         self.picker_mode = Some(PickerMode::ImageGump);
                     }
-                    Self::gump_field(ui, "Hue:", hue);
+                    Self::gump_field(ui, &t!("gs.f.hue"), hue);
                     preview = Some(PreviewKind::Gump(*gump_id));
                 }
                 ElementKind::Tiled { gump_id } => {
-                    Self::gump_field(ui, "Gump:", gump_id);
+                    Self::gump_field(ui, &t!("gs.f.gump"), gump_id);
                     if ui.button(t!("gs.picker.browse_tiled")).clicked() {
                         self.picker_mode = Some(PickerMode::TiledGump);
                     }
                     preview = Some(PreviewKind::Gump(*gump_id));
                 }
                 ElementKind::Item { item_id, hue } => {
-                    Self::gump_field(ui, "Item id:", item_id);
+                    Self::gump_field(ui, &t!("gs.f.item_id"), item_id);
                     if ui.button(t!("gs.picker.browse_item")).clicked() {
                         self.picker_mode = Some(PickerMode::ItemArt);
                     }
-                    Self::gump_field(ui, "Hue:", hue);
+                    Self::gump_field(ui, &t!("gs.f.hue"), hue);
                     preview = Some(PreviewKind::Item(*item_id));
                 }
                 ElementKind::Label { text, hue, font, ascii } => {
-                    ui.label("Texto:");
+                    ui.label(t!("gs.f.text"));
                     ui.text_edit_multiline(text);
-                    Self::gump_field(ui, "Hue:", hue);
+                    Self::gump_field(ui, &t!("gs.f.hue"), hue);
                     ui.horizontal(|ui| {
-                        ui.label("Fonte:");
+                        ui.label(t!("gs.f.font"));
                         ui.selectable_value(ascii, false, "Unicode");
                         ui.selectable_value(ascii, true, "ASCII");
                         let max = if *ascii { 9 } else { 12 };
@@ -779,12 +779,12 @@ impl GumpStudioTab {
                         *font = f as u8;
                     })
                     .response
-                    .on_hover_text("Fonte do cliente usada na pré-visualização; não altera o código exportado");
+                    .on_hover_text(t!("gs.f.font.tip"));
                 }
                 ElementKind::Html { text, cliloc, background, scrollbar } => {
-                    Self::gump_field(ui, "Cliloc (0 = texto):", cliloc);
+                    Self::gump_field(ui, &t!("gs.f.cliloc"), cliloc);
                     if *cliloc == 0 {
-                        ui.label("HTML:");
+                        ui.label(t!("gs.f.html"));
                         let id = egui::Id::new(("gs_html_text", i));
                         let n = text.chars().count();
                         let sel = egui::TextEdit::load_state(ctx, id)
@@ -795,29 +795,29 @@ impl GumpStudioTab {
                         let mut strip = false;
                         let tag = |o: &str, c: &str| Some((o.to_string(), c.to_string()));
                         ui.horizontal_wrapped(|ui| {
-                            if ui.button(egui::RichText::new("B").strong()).on_hover_text("Negrito <b>").clicked() {
+                            if ui.button(egui::RichText::new("B").strong()).on_hover_text(t!("gs.html.bold")).clicked() {
                                 apply = tag("<b>", "</b>");
                             }
-                            if ui.button(egui::RichText::new("I").italics()).on_hover_text("Itálico <i>").clicked() {
+                            if ui.button(egui::RichText::new("I").italics()).on_hover_text(t!("gs.html.italic")).clicked() {
                                 apply = tag("<i>", "</i>");
                             }
-                            if ui.button(egui::RichText::new("U").underline()).on_hover_text("Sublinhado <u>").clicked() {
+                            if ui.button(egui::RichText::new("U").underline()).on_hover_text(t!("gs.html.underline")).clicked() {
                                 apply = tag("<u>", "</u>");
                             }
-                            if ui.button("A-").on_hover_text("Menor <small>").clicked() {
+                            if ui.button("A-").on_hover_text(t!("gs.html.small")).clicked() {
                                 apply = tag("<small>", "</small>");
                             }
-                            if ui.button("A+").on_hover_text("Maior <big>").clicked() {
+                            if ui.button("A+").on_hover_text(t!("gs.html.big")).clicked() {
                                 apply = tag("<big>", "</big>");
                             }
-                            egui::ComboBox::from_id_salt(("gs_html_size", i)).selected_text("Tamanho").width(70.0).show_ui(ui, |ui| {
+                            egui::ComboBox::from_id_salt(("gs_html_size", i)).selected_text(t!("gs.html.size")).width(70.0).show_ui(ui, |ui| {
                                 for sz in [1, 2, 3, 4, 5, 7] {
                                     if ui.selectable_label(false, sz.to_string()).clicked() {
                                         apply = tag(&format!("<basefont size=\"{}\">", sz), "</basefont>");
                                     }
                                 }
                             });
-                            egui::ComboBox::from_id_salt(("gs_html_head", i)).selected_text("Título").width(60.0).show_ui(ui, |ui| {
+                            egui::ComboBox::from_id_salt(("gs_html_head", i)).selected_text(t!("gs.html.heading")).width(60.0).show_ui(ui, |ui| {
                                 for h in 1..=6 {
                                     if ui.selectable_label(false, format!("H{}", h)).clicked() {
                                         apply = tag(&format!("<h{}>", h), &format!("</h{}>", h));
@@ -827,26 +827,26 @@ impl GumpStudioTab {
                         });
                         ui.horizontal_wrapped(|ui| {
                             ui.color_edit_button_srgb(&mut self.html_color);
-                            if ui.button("Cor").on_hover_text("Aplica a cor à seleção <basefont color>").clicked() {
+                            if ui.button(t!("gs.html.color")).on_hover_text(t!("gs.html.color.tip")).clicked() {
                                 let c = self.html_color;
                                 apply = tag(&format!("<basefont color=\"#{:02x}{:02x}{:02x}\">", c[0], c[1], c[2]), "</basefont>");
                             }
-                            if ui.button("⬅").on_hover_text("Alinhar à esquerda").clicked() {
+                            if ui.button("⬅").on_hover_text(t!("gs.html.left")).clicked() {
                                 apply = tag("<div align=\"left\">", "</div>");
                             }
-                            if ui.button("↔").on_hover_text("Centralizar <center>").clicked() {
+                            if ui.button("↔").on_hover_text(t!("gs.html.center")).clicked() {
                                 apply = tag("<center>", "</center>");
                             }
-                            if ui.button("➡").on_hover_text("Alinhar à direita").clicked() {
+                            if ui.button("➡").on_hover_text(t!("gs.html.right")).clicked() {
                                 apply = tag("<div align=\"right\">", "</div>");
                             }
-                            if ui.button("Link").on_hover_text("Link <a href>").clicked() {
+                            if ui.button(t!("gs.html.link")).on_hover_text(t!("gs.html.link.tip")).clicked() {
                                 apply = tag("<a href=\"\">", "</a>");
                             }
-                            if ui.button("↵").on_hover_text("Quebra de linha <br>").clicked() {
+                            if ui.button("↵").on_hover_text(t!("gs.html.br")).clicked() {
                                 apply = Some(("<br>".into(), String::new()));
                             }
-                            if ui.button("Limpar").on_hover_text("Remover todas as tags").clicked() {
+                            if ui.button(t!("gs.html.clear")).on_hover_text(t!("gs.html.clear.tip")).clicked() {
                                 strip = true;
                             }
                         });
@@ -864,78 +864,78 @@ impl GumpStudioTab {
                             }
                         }
                     }
-                    ui.checkbox(background, "fundo");
-                    ui.checkbox(scrollbar, "barra de rolagem");
+                    ui.checkbox(background, t!("gs.f.background"));
+                    ui.checkbox(scrollbar, t!("gs.f.scrollbar"));
                 }
                 ElementKind::Button { normal, pressed, action, page, id } => {
-                    if Self::gump_field_browse(ui, "Gump normal:", normal) {
+                    if Self::gump_field_browse(ui, &t!("gs.f.gump_normal"), normal) {
                         self.picker_mode = Some(PickerMode::ButtonNormal);
                     }
-                    if Self::gump_field_browse(ui, "Gump pressionado:", pressed) {
+                    if Self::gump_field_browse(ui, &t!("gs.f.gump_pressed"), pressed) {
                         self.picker_mode = Some(PickerMode::ButtonPressed);
                     }
                     if ui.button(t!("gs.picker.browse_button")).clicked() {
                         self.picker_mode = Some(PickerMode::ButtonPair);
                     }
                     ui.horizontal(|ui| {
-                        ui.label("Ação:");
-                        ui.selectable_value(action, ButtonAction::Reply, "Resposta");
-                        ui.selectable_value(action, ButtonAction::Page, "Mudar página");
+                        ui.label(t!("gs.f.action"));
+                        ui.selectable_value(action, ButtonAction::Reply, t!("gs.f.action.reply"));
+                        ui.selectable_value(action, ButtonAction::Page, t!("gs.f.action.page"));
                     });
                     match action {
-                        ButtonAction::Page => Self::gump_field(ui, "Ir para a página:", page),
+                        ButtonAction::Page => Self::gump_field(ui, &t!("gs.f.goto_page"), page),
                         ButtonAction::Reply => {
                             let mut v = *id as u32;
-                            Self::gump_field(ui, "Id (0 = automático):", &mut v);
+                            Self::gump_field(ui, &t!("gs.f.id_auto"), &mut v);
                             *id = v as i32;
                         }
                     }
                     preview = Some(PreviewKind::Gump(*normal));
                 }
                 ElementKind::Checkbox { off, on, checked, id } => {
-                    if Self::gump_field_browse(ui, "Gump desmarcado:", off) {
+                    if Self::gump_field_browse(ui, &t!("gs.f.gump_off"), off) {
                         self.picker_mode = Some(PickerMode::SwitchOff);
                     }
-                    if Self::gump_field_browse(ui, "Gump marcado:", on) {
+                    if Self::gump_field_browse(ui, &t!("gs.f.gump_on"), on) {
                         self.picker_mode = Some(PickerMode::SwitchOn);
                     }
                     if ui.button(t!("gs.picker.browse_checkbox")).clicked() {
                         self.picker_mode = Some(PickerMode::CheckboxPair);
                     }
-                    ui.checkbox(checked, "marcado inicialmente");
+                    ui.checkbox(checked, t!("gs.f.checked_init"));
                     let mut v = *id as u32;
-                    Self::gump_field(ui, "Id (0 = automático):", &mut v);
+                    Self::gump_field(ui, &t!("gs.f.id_auto"), &mut v);
                     *id = v as i32;
                     preview = Some(PreviewKind::Gump(if *checked { *on } else { *off }));
                 }
                 ElementKind::Radio { off, on, checked, id } => {
-                    if Self::gump_field_browse(ui, "Gump desmarcado:", off) {
+                    if Self::gump_field_browse(ui, &t!("gs.f.gump_off"), off) {
                         self.picker_mode = Some(PickerMode::SwitchOff);
                     }
-                    if Self::gump_field_browse(ui, "Gump marcado:", on) {
+                    if Self::gump_field_browse(ui, &t!("gs.f.gump_on"), on) {
                         self.picker_mode = Some(PickerMode::SwitchOn);
                     }
                     if ui.button(t!("gs.picker.browse_radio")).clicked() {
                         self.picker_mode = Some(PickerMode::RadioPair);
                     }
-                    ui.checkbox(checked, "marcado inicialmente");
+                    ui.checkbox(checked, t!("gs.f.checked_init"));
                     let mut v = *id as u32;
-                    Self::gump_field(ui, "Id (0 = automático):", &mut v);
+                    Self::gump_field(ui, &t!("gs.f.id_auto"), &mut v);
                     *id = v as i32;
                     preview = Some(PreviewKind::Gump(if *checked { *on } else { *off }));
                 }
                 ElementKind::TextEntry { hue, text, id } => {
-                    Self::gump_field(ui, "Hue:", hue);
+                    Self::gump_field(ui, &t!("gs.f.hue"), hue);
                     ui.horizontal(|ui| {
-                        ui.label("Texto inicial:");
+                        ui.label(t!("gs.f.text_init"));
                         ui.text_edit_singleline(text);
                     });
                     let mut v = *id as u32;
-                    Self::gump_field(ui, "Id (0 = automático):", &mut v);
+                    Self::gump_field(ui, &t!("gs.f.id_auto"), &mut v);
                     *id = v as i32;
                 }
                 ElementKind::Alpha => {
-                    ui.label("Região translúcida sobre o fundo.");
+                    ui.label(t!("gs.f.alpha_hint"));
                 }
             }
         }
@@ -952,7 +952,7 @@ impl GumpStudioTab {
         }
         if let Some(pk) = preview {
             ui.separator();
-            ui.label("Pré-visualização:");
+            ui.label(t!("gs.preview"));
             let t = match pk {
                 PreviewKind::Resizepic(id) => self.resize_tex(ctx, d, id, 96, 72),
                 PreviewKind::Gump(id) => self.gump_tex(ctx, d, id, 0),
@@ -965,7 +965,7 @@ impl GumpStudioTab {
                     ui.image((t.id(), sz * k));
                 }
                 None => {
-                    ui.weak("gump não encontrado");
+                    ui.weak(t!("gs.preview.missing"));
                 }
             }
         }

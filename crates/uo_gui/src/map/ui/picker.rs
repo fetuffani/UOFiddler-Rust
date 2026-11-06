@@ -1347,7 +1347,7 @@ impl Picker {
                     ui.end_row();
                     if id == open.current {
                         widgets::label(ui, "");
-                        ui.label(RichText::new("the current value").color(style::color::SUCCESS));
+                        ui.label(RichText::new(t!("picker.current_value")).color(style::color::SUCCESS));
                         ui.end_row();
                     }
                     details(ui, open.kind, id as u16, assets);

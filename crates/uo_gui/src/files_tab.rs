@@ -242,7 +242,7 @@ impl FilesTab {
             ui.heading(t!("files.heading"));
             ui.label(t!("files.count", n = self.entries.len()));
             ui.horizontal(|ui| {
-                ui.label("🔍");
+                ui.label(t!("common.search_icon"));
                 ui.text_edit_singleline(&mut self.search);
             });
             ui.horizontal_wrapped(|ui| {
@@ -381,7 +381,7 @@ impl FilesTab {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.table_mode, true, t!("files.view.table"));
             ui.selectable_value(&mut self.table_mode, false, t!("files.view.text"));
-            ui.label("🔍");
+            ui.label(t!("common.search_icon"));
             ui.text_edit_singleline(&mut self.content_search);
         });
         let Content::Text { text, rows, .. } = &self.content else { return };
@@ -419,7 +419,7 @@ impl FilesTab {
 
     fn show_iff(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.label("🔍");
+            ui.label(t!("common.search_icon"));
             ui.text_edit_singleline(&mut self.content_search);
         });
         let Content::Iff(t) = &self.content else { return };
@@ -458,7 +458,7 @@ impl FilesTab {
         let named = file.entries.iter().filter(|e| e.name.is_some()).count();
         ui.label(t!("files.uop.info", version = file.version, n = file.entries.len(), named = named));
         ui.horizontal(|ui| {
-            ui.label("🔍");
+            ui.label(t!("common.search_icon"));
             ui.text_edit_singleline(&mut self.uop_search).on_hover_text(t!("files.uop.search.tip"));
         });
         let q = self.uop_search.to_lowercase();
@@ -566,13 +566,13 @@ impl FilesTab {
         };
         ui.label(hint);
         ui.horizontal(|ui| {
-            if ui.button("⏮").clicked() {
+            if ui.button(t!("files.hex.first")).clicked() {
                 self.hex_offset = 0;
             }
-            if ui.button("◀ 4 KB").clicked() {
+            if ui.button(t!("files.hex.prev")).clicked() {
                 self.hex_offset = self.hex_offset.saturating_sub(4096);
             }
-            if ui.button("4 KB ▶").clicked() && self.hex_offset + 4096 < size {
+            if ui.button(t!("files.hex.next")).clicked() && self.hex_offset + 4096 < size {
                 self.hex_offset += 4096;
             }
             ui.label(t!("files.hex.offset", pos = format!("{:X}", self.hex_offset), size = format!("{:X}", size)));
