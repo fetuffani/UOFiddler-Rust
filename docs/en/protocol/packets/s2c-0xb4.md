@@ -19,4 +19,4 @@ Conventions: offsets counted from the first byte of the packet (the id); integer
 Notes: Layout as documented in the project's packet table (packets.md); the click is answered with 0x6C. Not specified in the reference implementations.
 
 ## Implementation reference
-- Project table: `docs/protocol/packets.md` (section 0xB4)
+- Project table: `docs/en/protocol/packets.md` (section 0xB4)
