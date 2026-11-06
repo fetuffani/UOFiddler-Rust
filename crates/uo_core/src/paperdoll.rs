@@ -51,8 +51,8 @@ impl BodyKind {
             Self::HumanFemale => 13,
             Self::ElfMale => 14,
             Self::ElfFemale => 15,
-            Self::GargoyleMale => 665,
-            Self::GargoyleFemale => 666,
+            Self::GargoyleMale => 666,
+            Self::GargoyleFemale => 665,
         }
     }
 }
@@ -118,5 +118,8 @@ mod tests {
         assert_eq!(BodyKind::HumanFemale.anim_body(), 401);
         assert!(BodyKind::ElfFemale.female());
         assert_eq!(BodyKind::HumanMale.body_gump(), 12);
+        // gump 666 is the male gargoyle paperdoll and 665 the female one
+        assert_eq!(BodyKind::GargoyleMale.body_gump(), 666);
+        assert_eq!(BodyKind::GargoyleFemale.body_gump(), 665);
     }
 }
