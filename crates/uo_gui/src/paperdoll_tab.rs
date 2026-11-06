@@ -25,6 +25,8 @@ pub struct PaperdollData<'a> {
     pub resolver: &'a ClassicAnimResolver,
     pub mul_anim: &'a HashMap<u32, FileIndex>,
     pub uop_anim: &'a UopAnimationIndex,
+    /// body ids that mobtypes.txt classifies as equipment
+    pub equipment_bodies: &'a std::collections::HashSet<u32>,
     /// art.mul index (item art for the slot view)
     pub art: Option<&'a FileIndex>,
 }
@@ -61,6 +63,8 @@ pub struct PaperdollTab {
     anim_tex: Vec<egui::TextureHandle>,
     dirty: bool,
     info: String,
+    /// equipped items that have no animation / gump in the loaded client files
+    warn: String,
     scale: f32,
     slot_tex: HashMap<(u16, u32, bool), Option<egui::TextureHandle>>,
 }
@@ -83,6 +87,7 @@ impl Default for PaperdollTab {
             anim_tex: Vec::new(),
             dirty: true,
             info: String::new(),
+            warn: String::new(),
             scale: 1.0,
             slot_tex: HashMap::new(),
         }
@@ -244,7 +249,9 @@ impl PaperdollTab {
         }
         let mut layers: Vec<(i32, Vec<AnimationFrame>)> = Vec::new();
         for (l, e) in &self.equipped {
-            if let Some(mut frames) = load(e.anim_id as u32) {
+            let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
+            let frames = load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction);
+            if let Some(mut frames) = frames {
                 if let Some(p) = hue_palette(d.hues, e.hue) {
                     for f in &mut frames {
                         apply_hue_bytes(&mut f.rgba_data, &p, e.partial);
@@ -295,6 +302,25 @@ impl PaperdollTab {
                 )
             })
             .collect();
+        // Items whose animation or gump does not exist in the loaded files (new items on an old client)
+        let (mut no_anim, mut no_gump) = (Vec::new(), Vec::new());
+        for e in self.equipped.values() {
+            let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
+            if load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction).is_none() {
+                no_anim.push(format!("0x{:04X}", e.item_id));
+            }
+            let (g, _) = d.equip_gump.gump_for_anim(self.body.anim_body(), e.anim_id as u32, self.body.female(), |g| d.gump_index.map_or(false, |gi| gi.is_valid(g as usize)));
+            if !d.gump_index.map_or(false, |gi| gi.is_valid(g as usize)) {
+                no_gump.push(format!("0x{:04X}", e.item_id));
+            }
+        }
+        self.warn = String::new();
+        if !no_anim.is_empty() {
+            self.warn.push_str(&format!("⚠ sem animação nos arquivos carregados: {}. ", no_anim.join(", ")));
+        }
+        if !no_gump.is_empty() {
+            self.warn.push_str(&format!("⚠ sem gump de paperdoll nos arquivos carregados: {}.", no_gump.join(", ")));
+        }
         self.frame = 0;
         self.info = format!(
             "{} · corpo {} · ação {} · direção {} · {} quadros · {} itens",
@@ -330,6 +356,11 @@ impl PaperdollTab {
                     self.body = BodyKind::ALL[k.min(5)];
                 }
             }
+            // UOFIDDLER_PAPERDOLL_ITEMS=0x2662,0x1539 equips exact items (automated screenshots)
+            if let Ok(v) = std::env::var("UOFIDDLER_PAPERDOLL_ITEMS") {
+                let ids: Vec<u16> = v.split(',').filter_map(|x| u16::from_str_radix(x.trim().trim_start_matches("0x"), 16).ok()).collect();
+                self.preset(d.tiledata, &ids);
+            }
         }
         if self.dirty {
             self.rebuild(ctx, d);
@@ -351,6 +382,9 @@ impl PaperdollTab {
                 self.show_slots(ui, ctx, d);
             });
             ui.label(&self.info);
+            if !self.warn.is_empty() {
+                ui.colored_label(egui::Color32::from_rgb(230, 170, 60), &self.warn);
+            }
             ui.add(egui::Slider::new(&mut self.scale, 0.5..=2.0).text("escala"));
             ui.separator();
             ui.columns(2, |cols| {

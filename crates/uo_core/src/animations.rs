@@ -690,6 +690,20 @@ pub fn parse_animation_list_xml(xml_content: &str) -> Vec<AnimationDef> {
     defs
 }
 
+/// Body ids that mobtypes.txt finally classifies as EQUIPMENT. A body can be listed twice (for
+/// example 734 is both an equipment animation and a monster); the last line of the file wins.
+pub fn equipment_bodies_from_mobtypes(content: &str) -> std::collections::HashSet<u32> {
+    let mut last: std::collections::HashMap<u32, bool> = std::collections::HashMap::new();
+    for line in content.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        let mut it = line.split_whitespace();
+        if let (Some(id), Some(kind)) = (it.next().and_then(|v| v.parse::<u32>().ok()), it.next()) {
+            last.insert(id, kind.eq_ignore_ascii_case("EQUIPMENT"));
+        }
+    }
+    last.into_iter().filter(|(_, e)| *e).map(|(id, _)| id).collect()
+}
+
 /// Parses mobtypes.txt entries.
 pub fn parse_mobtypes_txt(content: &str) -> Vec<AnimationDef> {
     let mut defs = Vec::new();
@@ -825,4 +839,17 @@ pub fn load_animation_defs(file_manager: &crate::FileManager) -> Vec<AnimationDe
 
     defs.sort_by_key(|d| d.body);
     defs
+}
+
+#[cfg(test)]
+mod equipment_tests {
+    use super::*;
+
+    #[test]
+    fn last_mobtypes_line_wins() {
+        let set = equipment_bodies_from_mobtypes("# c\n434\tEQUIPMENT\t0\n734\tEQUIPMENT\t0\n734\tMONSTER\t10000\t0 # Slith\n400\tHUMAN\t20000\n");
+        assert!(set.contains(&434));
+        assert!(!set.contains(&734), "734 is finally a monster");
+        assert!(!set.contains(&400));
+    }
 }
