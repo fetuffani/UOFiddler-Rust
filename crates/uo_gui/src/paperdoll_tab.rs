@@ -94,31 +94,43 @@ impl Default for PaperdollTab {
     }
 }
 
-fn slot_label(layer: u8) -> &'static str {
+fn slot_label(layer: u8) -> String {
     match layer {
-        1 => "Dir.",
-        2 => "Esq.",
-        3 => "Pés",
-        4 => "Calça",
-        5 => "Camisa",
-        6 => "Elmo",
-        7 => "Luvas",
-        8 => "Anel",
-        9 => "Talismã",
-        10 => "Colar",
-        11 => "Cabelo",
-        12 => "Cinto",
-        13 => "Peito",
-        14 => "Pulso",
-        16 => "Barba",
-        17 => "Tronco",
-        18 => "Brinco",
-        19 => "Braços",
-        20 => "Capa",
-        21 => "Mochila",
-        22 => "Robe",
-        24 => "Pernas",
-        _ => "?",
+        1 => t!("paperdoll.slot.1"),
+        2 => t!("paperdoll.slot.2"),
+        3 => t!("paperdoll.slot.3"),
+        4 => t!("paperdoll.slot.4"),
+        5 => t!("paperdoll.slot.5"),
+        6 => t!("paperdoll.slot.6"),
+        7 => t!("paperdoll.slot.7"),
+        8 => t!("paperdoll.slot.8"),
+        9 => t!("paperdoll.slot.9"),
+        10 => t!("paperdoll.slot.10"),
+        11 => t!("paperdoll.slot.11"),
+        12 => t!("paperdoll.slot.12"),
+        13 => t!("paperdoll.slot.13"),
+        14 => t!("paperdoll.slot.14"),
+        16 => t!("paperdoll.slot.16"),
+        17 => t!("paperdoll.slot.17"),
+        18 => t!("paperdoll.slot.18"),
+        19 => t!("paperdoll.slot.19"),
+        20 => t!("paperdoll.slot.20"),
+        21 => t!("paperdoll.slot.21"),
+        22 => t!("paperdoll.slot.22"),
+        24 => t!("paperdoll.slot.24"),
+        _ => "?".to_string(),
+    }
+}
+
+/// Localized label of a body kind (the core `label()` stays the Portuguese fallback).
+fn body_label(b: BodyKind) -> String {
+    match b {
+        BodyKind::HumanMale => t!("paperdoll.body.human_m"),
+        BodyKind::HumanFemale => t!("paperdoll.body.human_f"),
+        BodyKind::ElfMale => t!("paperdoll.body.elf_m"),
+        BodyKind::ElfFemale => t!("paperdoll.body.elf_f"),
+        BodyKind::GargoyleMale => t!("paperdoll.body.gargoyle_m"),
+        BodyKind::GargoyleFemale => t!("paperdoll.body.gargoyle_f"),
     }
 }
 
@@ -316,20 +328,20 @@ impl PaperdollTab {
         }
         self.warn = String::new();
         if !no_anim.is_empty() {
-            self.warn.push_str(&format!("⚠ sem animação nos arquivos carregados: {}. ", no_anim.join(", ")));
+            self.warn.push_str(&t!("paperdoll.warn.no_anim", items = no_anim.join(", ")));
         }
         if !no_gump.is_empty() {
-            self.warn.push_str(&format!("⚠ sem gump de paperdoll nos arquivos carregados: {}.", no_gump.join(", ")));
+            self.warn.push_str(&t!("paperdoll.warn.no_gump", items = no_gump.join(", ")));
         }
         self.frame = 0;
-        self.info = format!(
-            "{} · corpo {} · ação {} · direção {} · {} quadros · {} itens",
-            self.body.label(),
-            self.body.anim_body(),
-            self.action,
-            self.direction,
-            self.anim_tex.len(),
-            self.equipped.len()
+        self.info = t!(
+            "paperdoll.info",
+            body = body_label(self.body),
+            anim = self.body.anim_body(),
+            action = self.action,
+            dir = self.direction,
+            frames = self.anim_tex.len(),
+            items = self.equipped.len()
         );
         self.dirty = false;
     }
@@ -338,8 +350,8 @@ impl PaperdollTab {
 
     pub fn show(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, d: Option<&PaperdollData>) {
         let Some(d) = d else {
-            ui.heading("🧍 Paperdoll Builder");
-            ui.label("Carregue tiledata.mul e os arquivos de gump/animação para usar o construtor.");
+            ui.heading(t!("paperdoll.title"));
+            ui.label(t!("paperdoll.need_data"));
             return;
         };
         if self.catalog.is_none() {
@@ -385,26 +397,26 @@ impl PaperdollTab {
             if !self.warn.is_empty() {
                 ui.colored_label(egui::Color32::from_rgb(230, 170, 60), &self.warn);
             }
-            ui.add(egui::Slider::new(&mut self.scale, 0.5..=2.0).text("escala"));
+            ui.add(egui::Slider::new(&mut self.scale, 0.5..=2.0).text(t!("paperdoll.scale")));
             ui.separator();
             ui.columns(2, |cols| {
-                cols[0].heading("🐉 Animação");
+                cols[0].heading(t!("paperdoll.anim.heading"));
                 if let Some(t) = self.anim_tex.get(self.frame) {
                     let avail = cols[0].available_size();
                     let k = (self.scale * ANIM_ZOOM).min(avail.y / CANVAS.1 as f32).min(avail.x / CANVAS.0 as f32).max(0.5);
                     let size = egui::vec2(CANVAS.0 as f32, CANVAS.1 as f32) * k;
                     cols[0].image((t.id(), size));
                 } else {
-                    cols[0].label("Sem animação para esta combinação de corpo/ação/direção.");
+                    cols[0].label(t!("paperdoll.anim.none"));
                 }
-                cols[1].heading("🖼 Paperdoll (gump)");
+                cols[1].heading(t!("paperdoll.doll.heading"));
                 if let Some(t) = &self.doll_tex {
                     let size = t.size_vec2() * self.scale;
                     egui::ScrollArea::both().id_salt("pd_doll").show(&mut cols[1], |ui| {
                         ui.image((t.id(), size));
                     });
                 } else {
-                    cols[1].label("Gump do corpo não encontrado.");
+                    cols[1].label(t!("paperdoll.doll.none"));
                 }
             });
         });
@@ -433,7 +445,7 @@ impl PaperdollTab {
     /// One slot per wearable layer, like the cells of a backpack.
     fn show_slots(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, d: &PaperdollData) {
         ui.add_space(4.0);
-        ui.strong("🎒 Slots (itens equipados)");
+        ui.strong(t!("paperdoll.slots.heading"));
         const SLOT: f32 = 62.0;
         let mut select = None;
         let mut remove = None;
@@ -479,12 +491,16 @@ impl PaperdollTab {
                         let (g, _) = d.equip_gump.gump_for_anim(self.body.anim_body(), e.anim_id as u32, self.body.female(), |g| {
                             d.gump_index.map_or(false, |gi| gi.is_valid(g as usize))
                         });
-                        resp.on_hover_text(format!(
-                            "{}\nItem 0x{:04X} · animação {} · gump {}\nHue {}   (botão direito remove)",
-                            e.name, e.item_id, e.anim_id, g, e.hue
+                        resp.on_hover_text(t!(
+                            "paperdoll.slot.tip",
+                            name = e.name,
+                            item = format!("{:04X}", e.item_id),
+                            anim = e.anim_id,
+                            gump = g,
+                            hue = e.hue
                         ))
                     }
-                    None => resp.on_hover_text(format!("{} (vazio)", info.name)),
+                    None => resp.on_hover_text(t!("paperdoll.slot.empty", name = info.name)),
                 };
                 if resp.clicked() {
                     select = Some(info.id);
@@ -505,28 +521,28 @@ impl PaperdollTab {
     }
 
     fn show_controls(&mut self, ui: &mut egui::Ui, d: &PaperdollData) {
-        ui.heading("🧍 Paperdoll Builder");
+        ui.heading(t!("paperdoll.title"));
         ui.horizontal_wrapped(|ui| {
             for b in BodyKind::ALL {
-                if ui.selectable_label(self.body == b, b.label()).clicked() {
+                if ui.selectable_label(self.body == b, body_label(b)).clicked() {
                     self.body = b;
                     self.dirty = true;
                 }
             }
         });
         ui.horizontal(|ui| {
-            ui.label("Pele (hue):");
+            ui.label(t!("paperdoll.skin"));
             if ui.add(egui::DragValue::new(&mut self.skin_hue).range(0..=2999)).changed() {
                 self.dirty = true;
             }
-            ui.label("Dir:");
+            ui.label(t!("paperdoll.dir"));
             if ui.add(egui::Slider::new(&mut self.direction, 0..=7)).changed() {
                 self.dirty = true;
             }
         });
         ui.horizontal(|ui| {
             let cur = ACTIONS_HUMAN.iter().find(|(a, _)| *a == self.action).map_or("?", |(_, n)| *n);
-            egui::ComboBox::from_label("Ação").selected_text(format!("{} {}", self.action, cur)).show_ui(ui, |ui| {
+            egui::ComboBox::from_label(t!("paperdoll.action")).selected_text(format!("{} {}", self.action, cur)).show_ui(ui, |ui| {
                 for (a, n) in ACTIONS_HUMAN.iter() {
                     if ui.selectable_value(&mut self.action, *a, format!("{} {}", a, n)).clicked() {
                         self.dirty = true;
@@ -536,22 +552,22 @@ impl PaperdollTab {
             ui.checkbox(&mut self.playing, "▶");
         });
         ui.horizontal_wrapped(|ui| {
-            if ui.button("Nu").clicked() {
+            if ui.button(t!("paperdoll.preset.nude")).clicked() {
                 self.equipped.clear();
                 self.dirty = true;
             }
-            if ui.button("Roupa comum").clicked() {
+            if ui.button(t!("paperdoll.preset.common")).clicked() {
                 self.preset(d.tiledata, &[0x1517, 0x1539, 0x170B, 0x203B]);
             }
-            if ui.button("Armadura de placa").clicked() {
+            if ui.button(t!("paperdoll.preset.plate")).clicked() {
                 self.preset(d.tiledata, &[0x1412, 0x1413, 0x1410, 0x1414, 0x1415, 0x1411, 0x13B9, 0x1B72]);
             }
-            if ui.button("Robe + capa").clicked() {
+            if ui.button(t!("paperdoll.preset.robe")).clicked() {
                 self.preset(d.tiledata, &[0x1F03, 0x1515, 0x170B, 0x203C]);
             }
         });
         ui.separator();
-        ui.strong("Layers");
+        ui.strong(t!("paperdoll.layers"));
         egui::ScrollArea::vertical().id_salt("pd_layers").max_height(240.0).show(ui, |ui| {
             for info in LAYERS.iter() {
                 ui.horizontal(|ui| {
@@ -577,7 +593,7 @@ impl PaperdollTab {
         });
         ui.separator();
         let name = layer_info(self.sel_layer).map_or("", |l| l.name);
-        ui.strong(format!("Itens da layer: {}", name));
+        ui.strong(t!("paperdoll.layer_items", name = name));
         ui.horizontal(|ui| {
             ui.label("🔍");
             ui.text_edit_singleline(&mut self.search);
@@ -594,13 +610,13 @@ impl PaperdollTab {
                     .collect()
             })
             .unwrap_or_default();
-        ui.label(format!("{} itens", items.len()));
+        ui.label(t!("paperdoll.items_count", n = items.len()));
         let mut pick = None;
         egui::ScrollArea::vertical().id_salt("pd_items").auto_shrink([false, false]).show_rows(ui, 20.0, items.len(), |ui, range| {
             for i in range {
                 let it = &items[i];
                 let sel = self.equipped.get(&self.sel_layer).map_or(false, |e| e.item_id == it.item_id);
-                if ui.selectable_label(sel, format!("0x{:04X}  {}  (anim {})", it.item_id, it.name, it.anim_id)).clicked() {
+                if ui.selectable_label(sel, t!("paperdoll.item_row", item = format!("{:04X}", it.item_id), name = it.name, anim = it.anim_id)).clicked() {
                     pick = Some(it.item_id);
                 }
             }
