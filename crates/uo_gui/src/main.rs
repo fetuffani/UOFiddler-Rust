@@ -3703,18 +3703,18 @@ impl UoFiddlerApp {
             .default_width(300.0)
             .min_width(220.0)
             .show_inside(ui, |ui| {
-                ui.heading("Gump Art Viewer");
+                ui.heading(t!("gumps.heading"));
 
                 // Source selector
                 ui.horizontal(|ui| {
-                    let classic_btn = ui.selectable_label(!self.gump_mode_enhanced, "📜 Clássico");
+                    let classic_btn = ui.selectable_label(!self.gump_mode_enhanced, &t!("common.classic"));
                     if classic_btn.clicked() && self.gump_mode_enhanced {
                         self.gump_mode_enhanced = false;
                         self.refresh_valid_gumps();
                         self.load_gump(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.gump_mode_enhanced, "✨ Enhanced (EC UOP)");
+                        ui.selectable_label(self.gump_mode_enhanced, &t!("gumps.mode.enhanced"));
                     if enhanced_btn.clicked() && !self.gump_mode_enhanced {
                         self.gump_mode_enhanced = true;
                         self.refresh_valid_gumps();
@@ -3722,10 +3722,7 @@ impl UoFiddlerApp {
                     }
                 });
 
-                ui.label(format!(
-                    "Total de Gumps válidos: {}",
-                    self.valid_gumps.len()
-                ));
+                ui.label(t!("gumps.total", n = self.valid_gumps.len()));
 
                 ui.horizontal(|ui| {
                     ui.label(t!("common.search"));
@@ -3751,7 +3748,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_gump(ctx);
                                 self.status_message =
-                                    format!("Navegado para Gump 0x{:04X} ({})", id, id);
+                                    t!("gumps.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -3780,7 +3777,7 @@ impl UoFiddlerApp {
                     .show_rows(ui, row_height, total, |ui, row_range| {
                         for idx in row_range {
                             let gid = filtered[idx];
-                            let label = format!("Gump 0x{:04X} ({})", gid, gid);
+                            let label = t!("gumps.item_label", id = format!("{:04X}", gid), dec = gid);
                             let is_sel = self.gump_id == gid;
                             let resp = ui.selectable_label(is_sel, label);
                             if resp.clicked() {
@@ -3800,22 +3797,25 @@ impl UoFiddlerApp {
                     || self.uop_anim_index.is_action_defined(anim, 0)
                     || (0..40).any(|a| self.is_mul_action_defined(anim, a));
                 ui.horizontal(|ui| {
-                    ui.label(format!("🔗 Animação de equipamento: body {} ({})", anim, if female { "♀" } else { "♂" }));
-                    if has_anim && ui.button("Abrir em Animations").clicked() {
+                    ui.label(t!("gumps.equip_anim", body = anim, gender = if female { "♀" } else { "♂" }));
+                    if has_anim && ui.button(t!("gumps.open_anim")).clicked() {
                         self.anim_body = anim;
                         self.anim_action = self.get_first_defined_action(anim);
                         self.anim_mode_enhanced = false;
                         self.active_tab = UoTab::Animations;
                         self.load_animation(ctx);
                     } else if !has_anim {
-                        ui.weak("(sem animação nos arquivos)");
+                        ui.weak(t!("gumps.no_anim"));
                     }
                 });
             }
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Gump 0x{:04X} ({}) - Dimensões: {} x {} px",
-                    self.gump_id, self.gump_id, self.gump_dim.0, self.gump_dim.1
+                ui.heading(t!(
+                    "gumps.title",
+                    id = format!("{:04X}", self.gump_id),
+                    dec = self.gump_id,
+                    w = self.gump_dim.0,
+                    h = self.gump_dim.1
                 ));
 
                 if ui
@@ -3918,7 +3918,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhum Gump carregado",
+                        t!("gumps.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -3949,9 +3949,9 @@ impl UoFiddlerApp {
 
     // 5. HUES TAB
     fn render_hues_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Hues Table (3.000 Cores e Gradientes)");
+        ui.heading(t!("hues.heading"));
         ui.horizontal(|ui| {
-            ui.label("Buscar Hue:");
+            ui.label(t!("hues.search"));
             ui.text_edit_singleline(&mut self.hue_search);
             if ui.button(ICON_CLEAR).clicked() {
                 self.hue_search.clear();
@@ -3969,11 +3969,11 @@ impl UoFiddlerApp {
                 .show_rows(ui, row_height, total_hues, |ui, row_range| {
                     for i in row_range {
                         let hue = &hm.hues[i];
-                        let label = format!(
-                            "Hue 0x{:04X} ({}) - {}",
-                            hue.index + 1,
-                            hue.index + 1,
-                            hue.name
+                        let label = t!(
+                            "hues.label",
+                            id = format!("{:04X}", hue.index + 1),
+                            dec = hue.index + 1,
+                            name = hue.name
                         );
                         if !search_lower.is_empty() && !label.to_lowercase().contains(&search_lower)
                         {
@@ -4013,7 +4013,7 @@ impl UoFiddlerApp {
                     }
                 });
         } else {
-            ui.label("hues.mul não encontrado.");
+            ui.label(t!("common.not_found", file = "hues.mul"));
         }
     }
 
@@ -4024,8 +4024,8 @@ impl UoFiddlerApp {
             .default_width(280.0)
             .min_width(220.0)
             .show_inside(ui, |ui| {
-                ui.heading("Textures (texmaps.mul)");
-                ui.label(format!("Total de texturas: {}", self.valid_textures.len()));
+                ui.heading(t!("textures.heading"));
+                ui.label(t!("textures.total", n = self.valid_textures.len()));
 
                 ui.horizontal(|ui| {
                     ui.label(t!("common.search"));
@@ -4051,7 +4051,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_texture_preview(ctx);
                                 self.status_message =
-                                    format!("Navegado para Textura 0x{:04X} ({})", id, id);
+                                    t!("textures.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -4092,7 +4092,7 @@ impl UoFiddlerApp {
                         }
                         for idx in row_range {
                             let tid = filtered[idx];
-                            let label = format!("Textura 0x{:04X} ({})", tid, tid);
+                            let label = t!("textures.item_label", id = format!("{:04X}", tid), dec = tid);
                             let is_sel = self.texture_id == tid;
                             let resp = ui.selectable_label(is_sel, label);
                             if resp.clicked() {
@@ -4108,9 +4108,12 @@ impl UoFiddlerApp {
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Textura 0x{:04X} ({}) - Dimensões: {} x {} px",
-                    self.texture_id, self.texture_id, self.texture_dim, self.texture_dim
+                ui.heading(t!(
+                    "textures.title",
+                    id = format!("{:04X}", self.texture_id),
+                    dec = self.texture_id,
+                    w = self.texture_dim,
+                    h = self.texture_dim
                 ));
 
                 if ui
@@ -4213,7 +4216,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhuma textura carregada",
+                        t!("textures.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -4252,14 +4255,14 @@ impl UoFiddlerApp {
             .default_width(320.0)
             .min_width(260.0)
             .show_inside(ui, |ui| {
-                ui.heading("RadarCol Table");
+                ui.heading(t!("radar.heading"));
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(self.radar_is_items, "Items").clicked() {
+                    if ui.selectable_label(self.radar_is_items, t!("radar.items")).clicked() {
                         self.radar_is_items = true;
                         self.load_radar_preview(ctx);
                     }
                     if ui
-                        .selectable_label(!self.radar_is_items, "Land Tiles")
+                        .selectable_label(!self.radar_is_items, t!("radar.land"))
                         .clicked()
                     {
                         self.radar_is_items = false;
@@ -4268,7 +4271,7 @@ impl UoFiddlerApp {
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("Buscar:");
+                    ui.label(t!("common.search_plain"));
                     ui.text_edit_singleline(&mut self.radar_search);
                     if ui.button(ICON_CLEAR).clicked() {
                         self.radar_search.clear();
@@ -4332,9 +4335,10 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Cor de Radar - 0x{:04X} ({})",
-                self.radar_selected, self.radar_selected
+            ui.heading(t!(
+                "radar.title",
+                id = format!("{:04X}", self.radar_selected),
+                dec = self.radar_selected
             ));
             ui.separator();
 
@@ -4363,7 +4367,7 @@ impl UoFiddlerApp {
                     );
 
                     ui.vertical(|ui| {
-                        ui.label(format!("Valor 16-bit: 0x{:04X}", raw_c16));
+                        ui.label(t!("radar.value16", value = format!("{:04X}", raw_c16)));
                         ui.label(format!(
                             "RGBA: rgba({}, {}, {}, {})",
                             col[0], col[1], col[2], col[3]
@@ -4373,7 +4377,7 @@ impl UoFiddlerApp {
             }
 
             ui.add_space(12.0);
-            ui.heading("Arte do Tile (Tamanho Real):");
+            ui.heading(t!("radar.tile_art"));
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 let (rect, _) =
                     ui.allocate_exact_size(egui::vec2(200.0, 200.0), egui::Sense::hover());
@@ -4394,7 +4398,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Sem imagem",
+                        t!("radar.no_image"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -5304,7 +5308,7 @@ impl UoFiddlerApp {
 
                 // Source selector: Clássico vs Enhanced
                 ui.horizontal(|ui| {
-                    let classic_btn = ui.selectable_label(!self.multi_mode_enhanced, "📜 Clássico");
+                    let classic_btn = ui.selectable_label(!self.multi_mode_enhanced, &t!("common.classic"));
                     if classic_btn.clicked() && self.multi_mode_enhanced {
                         self.multi_mode_enhanced = false;
                         self.refresh_valid_multis();
