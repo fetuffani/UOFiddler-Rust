@@ -203,6 +203,11 @@ impl TabCategory {
 }
 
 /// Draws an authentic transparent checkerboard background (Aseprite / Photoshop style)
+/// Display name of an animation action: human actions are technical names, the others are locale keys.
+pub fn action_display_name(anim_type: u8, name: &str) -> String {
+    if anim_type == 3 { name.to_string() } else { t!(name) }
+}
+
 pub fn draw_checkerboard(painter: &egui::Painter, rect: egui::Rect, cell_size: f32) {
     let c1 = egui::Color32::from_rgb(18, 19, 24);
     let c2 = egui::Color32::from_rgb(28, 30, 38);
@@ -309,52 +314,53 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
     ctx.set_style(style);
 }
 
+/// Action tables: the text is a locale key (`anim.action.<kind>.<n>`), except ACTIONS_HUMAN (technical names).
 pub const ACTIONS_MONSTER: [(u32, &str); 17] = [
-    (0, "Walk"),
-    (1, "Stand / Idle"),
-    (2, "Die 1"),
-    (3, "Die 2"),
-    (4, "Attack 1"),
-    (5, "Attack 2"),
-    (6, "Attack 3"),
-    (7, "Cast / Special 1"),
-    (8, "Cast / Special 2"),
-    (9, "Get Hit"),
-    (10, "Block Right"),
-    (11, "Block Left"),
-    (12, "Idle"),
-    (13, "Fidget"),
-    (14, "Fly"),
-    (15, "Take Off"),
-    (16, "Get Hit In Air"),
+    (0, "anim.action.monster.0"),
+    (1, "anim.action.monster.1"),
+    (2, "anim.action.monster.2"),
+    (3, "anim.action.monster.3"),
+    (4, "anim.action.monster.4"),
+    (5, "anim.action.monster.5"),
+    (6, "anim.action.monster.6"),
+    (7, "anim.action.monster.7"),
+    (8, "anim.action.monster.8"),
+    (9, "anim.action.monster.9"),
+    (10, "anim.action.monster.10"),
+    (11, "anim.action.monster.11"),
+    (12, "anim.action.monster.12"),
+    (13, "anim.action.monster.13"),
+    (14, "anim.action.monster.14"),
+    (15, "anim.action.monster.15"),
+    (16, "anim.action.monster.16"),
 ];
 
 pub const ACTIONS_ANIMAL: [(u32, &str); 13] = [
-    (0, "Walk"),
-    (1, "Run"),
-    (2, "Idle 1"),
-    (3, "Eat"),
-    (4, "Alert"),
-    (5, "Attack 1"),
-    (6, "Attack 2"),
-    (7, "Get Hit"),
-    (8, "Die 1"),
-    (9, "Idle 2"),
-    (10, "Fidget"),
-    (11, "Lie Down"),
-    (12, "Die 2"),
+    (0, "anim.action.animal.0"),
+    (1, "anim.action.animal.1"),
+    (2, "anim.action.animal.2"),
+    (3, "anim.action.animal.3"),
+    (4, "anim.action.animal.4"),
+    (5, "anim.action.animal.5"),
+    (6, "anim.action.animal.6"),
+    (7, "anim.action.animal.7"),
+    (8, "anim.action.animal.8"),
+    (9, "anim.action.animal.9"),
+    (10, "anim.action.animal.10"),
+    (11, "anim.action.animal.11"),
+    (12, "anim.action.animal.12"),
 ];
 
 pub const ACTIONS_SEA: [(u32, &str); 9] = [
-    (0, "Walk"),
-    (1, "Run"),
-    (2, "Idle 1"),
-    (3, "Idle 2"),
-    (4, "Fidget"),
-    (5, "Attack 1"),
-    (6, "Attack 2"),
-    (7, "Get Hit"),
-    (8, "Die 1"),
+    (0, "anim.action.sea.0"),
+    (1, "anim.action.sea.1"),
+    (2, "anim.action.sea.2"),
+    (3, "anim.action.sea.3"),
+    (4, "anim.action.sea.4"),
+    (5, "anim.action.sea.5"),
+    (6, "anim.action.sea.6"),
+    (7, "anim.action.sea.7"),
+    (8, "anim.action.sea.8"),
 ];
 
 pub const ACTIONS_HUMAN: [(u32, &str); 37] = [
@@ -420,15 +426,16 @@ pub const POPULAR_BODIES: [(u32, &str); 20] = [
     (79, "79 - Lich"),
 ];
 
+/// Text is a locale key (`anim.dir.<n>`).
 pub const DIRECTIONS: [(u8, &str); 8] = [
-    (0, "0 - South (Sul)"),
-    (1, "1 - South-West (Sudoeste)"),
-    (2, "2 - West (Oeste)"),
-    (3, "3 - North-West (Noroeste)"),
-    (4, "4 - North (Norte)"),
-    (5, "5 - North-East (Nordeste - Espelhado)"),
-    (6, "6 - East (Leste - Espelhado)"),
-    (7, "7 - South-East (Sudeste - Espelhado)"),
+    (0, "anim.dir.0"),
+    (1, "anim.dir.1"),
+    (2, "anim.dir.2"),
+    (3, "anim.dir.3"),
+    (4, "anim.dir.4"),
+    (5, "anim.dir.5"),
+    (6, "anim.dir.6"),
+    (7, "anim.dir.7"),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -4414,13 +4421,13 @@ impl UoFiddlerApp {
             .default_width(340.0)
             .min_width(280.0)
             .show_inside(ui, |ui| {
-                ui.heading("Controle de Animações");
+                ui.heading(t!("anim.heading"));
                 ui.add_space(4.0);
 
                 // Source selector: Clássico vs Enhanced UOP
                 ui.horizontal(|ui| {
                     let classic_btn =
-                        ui.selectable_label(!self.anim_mode_enhanced, "📜 Clássico (Anim.mul)");
+                        ui.selectable_label(!self.anim_mode_enhanced, &t!("anim.mode.classic"));
                     if classic_btn.clicked() && self.anim_mode_enhanced {
                         self.anim_mode_enhanced = false;
                         if self.anim_category_filter == AnimCategoryFilter::UopModern {
@@ -4447,7 +4454,7 @@ impl UoFiddlerApp {
                         self.load_animation(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.anim_mode_enhanced, "✨ Enhanced (UOP)");
+                        ui.selectable_label(self.anim_mode_enhanced, &t!("common.enhanced_uop"));
                     if enhanced_btn.clicked() && !self.anim_mode_enhanced {
                         self.anim_mode_enhanced = true;
                         let search_lower = self.anim_search.trim().to_lowercase();
@@ -4475,7 +4482,7 @@ impl UoFiddlerApp {
 
                 // Category and search
                 ui.group(|ui| {
-                    ui.label("🔍 Filtrar Criaturas:");
+                    ui.label(t!("anim.filter"));
                     ui.horizontal(|ui| {
                         if ui.text_edit_singleline(&mut self.anim_search).changed() {
                             let search_lower = self.anim_search.trim().to_lowercase();
@@ -4505,53 +4512,53 @@ impl UoFiddlerApp {
 
                     ui.horizontal(|ui| {
                         let cat_label = match self.anim_category_filter {
-                            AnimCategoryFilter::All => "Todos",
-                            AnimCategoryFilter::Monsters => "Monstros (0)",
-                            AnimCategoryFilter::SeaMonsters => "Criaturas Marinhas (1)",
-                            AnimCategoryFilter::Animals => "Animais (2)",
-                            AnimCategoryFilter::Humanoids => "Humanos / Elfos (3)",
-                            AnimCategoryFilter::Equipment => "Equipamentos / Armaduras",
-                            AnimCategoryFilter::UopModern => "UOP Modernos (Stygian/TOL)",
+                            AnimCategoryFilter::All => t!("anim.cat.all"),
+                            AnimCategoryFilter::Monsters => t!("anim.cat.monsters"),
+                            AnimCategoryFilter::SeaMonsters => t!("anim.cat.sea"),
+                            AnimCategoryFilter::Animals => t!("anim.cat.animals"),
+                            AnimCategoryFilter::Humanoids => t!("anim.cat.humanoids"),
+                            AnimCategoryFilter::Equipment => t!("anim.cat.equipment"),
+                            AnimCategoryFilter::UopModern => t!("anim.cat.uop"),
                         };
 
                         let old_cat = self.anim_category_filter;
-                        egui::ComboBox::from_label("Categoria")
+                        egui::ComboBox::from_label(t!("anim.category"))
                             .selected_text(cat_label)
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::All,
-                                    "Todos",
+                                    t!("anim.cat.all"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Monsters,
-                                    "Monstros (0)",
+                                    t!("anim.cat.monsters"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::SeaMonsters,
-                                    "Criaturas Marinhas (1)",
+                                    t!("anim.cat.sea"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Animals,
-                                    "Animais (2)",
+                                    t!("anim.cat.animals"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Humanoids,
-                                    "Humanos / Elfos (3)",
+                                    t!("anim.cat.humanoids"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::Equipment,
-                                    "Equipamentos / Armaduras",
+                                    t!("anim.cat.equipment"),
                                 );
                                 ui.selectable_value(
                                     &mut self.anim_category_filter,
                                     AnimCategoryFilter::UopModern,
-                                    "UOP Modernos (Stygian/TOL)",
+                                    t!("anim.cat.uop"),
                                 );
                             });
 
@@ -4586,13 +4593,13 @@ impl UoFiddlerApp {
                         .anim_body_defs
                         .iter()
                         .find(|d| d.body == self.anim_body)
-                        .map(|d| d.name.as_str())
-                        .unwrap_or("Personalizado");
+                        .map(|d| d.name.clone())
+                        .unwrap_or_else(|| t!("anim.custom"));
 
                     let mut chosen_body: Option<u32> = None;
                     let current_body = self.anim_body;
 
-                    egui::ComboBox::from_label("Corpo / Criatura")
+                    egui::ComboBox::from_label(t!("anim.body_combo"))
                         .selected_text(format!("{} - {}", self.anim_body, current_body_name))
                         .width(220.0)
                         .show_ui(ui, |ui| {
@@ -4616,7 +4623,7 @@ impl UoFiddlerApp {
                                         }
                                         count += 1;
                                         if count >= 600 {
-                                            ui.label("... (refine a busca)");
+                                            ui.label(t!("anim.refine"));
                                             break;
                                         }
                                     }
@@ -4630,7 +4637,7 @@ impl UoFiddlerApp {
                     }
 
                     ui.horizontal(|ui| {
-                        ui.label("Body ID Manual:");
+                        ui.label(t!("anim.body_manual"));
                         if ui
                             .add(egui::DragValue::new(&mut self.anim_body).range(0..=65535))
                             .changed()
@@ -4641,7 +4648,7 @@ impl UoFiddlerApp {
                     });
 
                     ui.separator();
-                    ui.label("Seleção de Ação:");
+                    ui.label(t!("anim.action_select"));
 
                     // Dynamically pick actions based on body type
                     let cur_def = self
@@ -4666,10 +4673,10 @@ impl UoFiddlerApp {
                     let current_action_name = actions
                         .iter()
                         .find(|(act, _)| *act == self.anim_action)
-                        .map(|(_, n)| *n)
-                        .unwrap_or("Ação");
+                        .map(|(_, n)| action_display_name(anim_type, n))
+                        .unwrap_or_else(|| t!("anim.action_default"));
 
-                    egui::ComboBox::from_label("Ação")
+                    egui::ComboBox::from_label(t!("anim.action_combo"))
                         .selected_text(format!("{} - {}", self.anim_action, current_action_name))
                         .show_ui(ui, |ui| {
                             for (act, name) in actions {
@@ -4679,7 +4686,7 @@ impl UoFiddlerApp {
                                     .selectable_value(
                                         &mut self.anim_action,
                                         *act,
-                                        format!("{}{:02} - {}", check, act, name),
+                                        format!("{}{:02} - {}", check, act, action_display_name(anim_type, name)),
                                     )
                                     .clicked()
                                 {
@@ -4696,7 +4703,7 @@ impl UoFiddlerApp {
                                             .selectable_value(
                                                 &mut self.anim_action,
                                                 extra_act,
-                                                format!("✓ {:02} - Extra {}", extra_act, extra_act),
+                                                format!("✓ {:02} - {}", extra_act, t!("anim.extra", n = extra_act)),
                                             )
                                             .clicked()
                                         {
@@ -4708,7 +4715,7 @@ impl UoFiddlerApp {
                         });
 
                     ui.horizontal(|ui| {
-                        ui.label("Ação ID:");
+                        ui.label(t!("anim.action_id"));
                         if ui
                             .add(egui::DragValue::new(&mut self.anim_action).range(0..=80))
                             .changed()
@@ -4722,14 +4729,14 @@ impl UoFiddlerApp {
                     let current_dir_name = DIRECTIONS
                         .iter()
                         .find(|(d, _)| *d == self.anim_direction)
-                        .map(|(_, n)| *n)
-                        .unwrap_or("0");
-                    egui::ComboBox::from_label("Direção")
+                        .map(|(_, n)| t!(n))
+                        .unwrap_or_else(|| "0".to_string());
+                    egui::ComboBox::from_label(t!("anim.direction"))
                         .selected_text(current_dir_name)
                         .show_ui(ui, |ui| {
                             for (d, name) in DIRECTIONS {
                                 if ui
-                                    .selectable_value(&mut self.anim_direction, d, name)
+                                    .selectable_value(&mut self.anim_direction, d, t!(name))
                                     .clicked()
                                 {
                                     self.load_animation(ctx);
@@ -4738,19 +4745,19 @@ impl UoFiddlerApp {
                         });
 
                     ui.add_space(4.0);
-                    if ui.button("⚡ Recarregar Animação").clicked() {
+                    if ui.button(t!("anim.reload")).clicked() {
                         self.load_animation(ctx);
                     }
                 });
 
                 ui.add_space(8.0);
                 ui.group(|ui| {
-                    ui.label("Reprodução em Tempo Real:");
+                    ui.label(t!("anim.playback"));
                     ui.horizontal(|ui| {
                         let play_btn_text = if self.anim_playing {
-                            "⏸ Pausar"
+                            t!("anim.pause")
                         } else {
-                            "▶ Reproduzir"
+                            t!("anim.play")
                         };
                         if ui.button(play_btn_text).clicked() {
                             self.anim_playing = !self.anim_playing;
@@ -4773,19 +4780,19 @@ impl UoFiddlerApp {
                     });
 
                     ui.horizontal(|ui| {
-                        ui.label("Velocidade:");
+                        ui.label(t!("anim.speed"));
                         ui.add(egui::Slider::new(&mut self.anim_fps, 1..=30).text("fps"));
                     });
 
                     let total_frames = self.anim_frames.len();
-                    ui.label(format!(
-                        "Quadro: {} / {}",
-                        if total_frames == 0 {
+                    ui.label(t!(
+                        "anim.frame",
+                        cur = if total_frames == 0 {
                             0
                         } else {
                             self.anim_current_frame_idx + 1
                         },
-                        total_frames
+                        total = total_frames
                     ));
                 });
             });
@@ -4813,9 +4820,11 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading(format!(
-                "Visualizador - Body {} | Ação {} | Dir {}",
-                self.anim_body, self.anim_action, self.anim_direction
+            ui.heading(t!(
+                "anim.viewer",
+                body = self.anim_body,
+                action = self.anim_action,
+                dir = self.anim_direction
             ));
             // Link animation -> paperdoll gump (equipment animations map to gump 50000+/60000+)
             {
@@ -4825,7 +4834,7 @@ impl UoFiddlerApp {
                 let (gf, _) = self.equip_gump.gump_for_anim(401, self.anim_body, true, exists);
                 let mut goto: Option<u32> = None;
                 ui.horizontal(|ui| {
-                    ui.label("🔗 Gump:");
+                    ui.label(t!("anim.gump_link"));
                     if exists(gm) && ui.button(format!("♂ {} (0x{:04X})", gm, gm)).clicked() {
                         goto = Some(gm);
                     }
@@ -4833,7 +4842,7 @@ impl UoFiddlerApp {
                         goto = Some(gf);
                     }
                     if !exists(gm) && !exists(gf) {
-                        ui.weak("nenhum gump associado a este corpo");
+                        ui.weak(t!("anim.no_gump"));
                     }
                 });
                 if let Some(g) = goto {
@@ -4878,7 +4887,7 @@ impl UoFiddlerApp {
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
-                    "Nenhuma animação carregada",
+                    t!("anim.empty"),
                     egui::FontId::proportional(14.0),
                     egui::Color32::GRAY,
                 );
@@ -5315,7 +5324,7 @@ impl UoFiddlerApp {
                         self.render_current_multi(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.multi_mode_enhanced, "✨ Enhanced (UOP)");
+                        ui.selectable_label(self.multi_mode_enhanced, &t!("common.enhanced_uop"));
                     if enhanced_btn.clicked() && !self.multi_mode_enhanced {
                         self.multi_mode_enhanced = true;
                         self.refresh_valid_multis();
