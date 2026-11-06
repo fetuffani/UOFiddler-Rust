@@ -820,6 +820,44 @@ impl GumpStudioTab {
                 painter.rect_stroke(r.expand(1.0), 0.0, egui::Stroke::new(1.5_f32, egui::Color32::from_rgb(255, 200, 60)));
             }
         }
+        // resize handles of the selected element (right edge, bottom edge, corner)
+        if let Some(i) = self.selected.filter(|&i| i < self.doc.elements.len()) {
+            let e = self.doc.elements[i].clone();
+            if e.kind.is_sized() && (e.page == 0 || e.page == self.view_page) {
+                let pos = origin + egui::vec2(e.x as f32, e.y as f32) * z;
+                let r = egui::Rect::from_min_size(pos, egui::vec2(e.w as f32, e.h as f32) * z);
+                let hs = egui::vec2(9.0, 9.0);
+                let handles = [
+                    (egui::Rect::from_center_size(r.right_center(), hs), (1, 0), egui::CursorIcon::ResizeHorizontal),
+                    (egui::Rect::from_center_size(r.center_bottom(), hs), (0, 1), egui::CursorIcon::ResizeVertical),
+                    (egui::Rect::from_center_size(r.right_bottom(), hs), (1, 1), egui::CursorIcon::ResizeNwSe),
+                ];
+                for (k, (hr, dir, icon)) in handles.into_iter().enumerate() {
+                    painter.rect_filled(hr, 1.0, egui::Color32::from_rgb(255, 200, 60));
+                    let resp = ui.interact(hr, ui.id().with(("gs_handle", i, k)), egui::Sense::drag());
+                    if resp.hovered() || resp.dragged() {
+                        ui.ctx().set_cursor_icon(icon);
+                    }
+                    if resp.drag_started() {
+                        self.push_undo();
+                    }
+                    if resp.dragged() {
+                        let d = resp.drag_delta() / z;
+                        if let Some(el) = self.doc.elements.get_mut(i) {
+                            el.w = (el.w + (d.x * dir.0 as f32).round() as i32).clamp(8, 2000);
+                            el.h = (el.h + (d.y * dir.1 as f32).round() as i32).clamp(8, 2000);
+                        }
+                    }
+                    if resp.drag_stopped() && self.snap > 1 {
+                        let sn = self.snap;
+                        if let Some(el) = self.doc.elements.get_mut(i) {
+                            el.w = ((el.w as f32 / sn as f32).round() as i32 * sn).max(8);
+                            el.h = ((el.h as f32 / sn as f32).round() as i32 * sn).max(8);
+                        }
+                    }
+                }
+            }
+        }
         if bg.clicked() && !clicked_elem {
             self.selected = None;
         }
