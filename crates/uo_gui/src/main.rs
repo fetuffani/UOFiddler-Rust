@@ -53,6 +53,17 @@ pub const TILEDATA_FLAGS: [(&str, u64); 38] = [
     ("HoverOver", 1 << 37),
 ];
 
+/// How the Map tab draws the world.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MapMode {
+    /// Top-down minimap coloured with radarcol.mul
+    Radar,
+    /// Isometric rendering with the real art, like the game client
+    Live,
+    /// Whole-facet overview image (facetNN.mul / Multimap.rle)
+    Overview,
+}
+
 /// All 17 functional tabs supported by UOFiddler (TileData integrated directly into Items & Land)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UoTab {
@@ -625,6 +636,14 @@ pub struct UoFiddlerApp {
     map_texture: Option<egui::TextureHandle>,
     map_show_statics: bool,
     map_last_render_size: egui::Vec2,
+    map_mode: MapMode,
+    map_use_diff: bool,
+    live_zoom: f32,
+    map_max_z: i32,
+    live_pan: (f32, f32),
+    live_renderer: LiveRenderer,
+    overview_tex: Option<(usize, bool, egui::TextureHandle, u32, u32)>,
+    overview_multimap: bool,
 
     // GameData Tab state
     gamedata_archive: GameDataArchive,
@@ -798,6 +817,14 @@ impl Default for UoFiddlerApp {
             map_texture: None,
             map_show_statics: true,
             map_last_render_size: egui::Vec2::ZERO,
+            map_mode: MapMode::Radar,
+            map_use_diff: true,
+            live_zoom: 1.0,
+            map_max_z: 127,
+            live_pan: (0.0, 0.0),
+            live_renderer: LiveRenderer::default(),
+            overview_tex: None,
+            overview_multimap: false,
             gamedata_archive,
             gamedata_search: String::new(),
             gamedata_selected_idx: 0,
@@ -807,6 +834,25 @@ impl Default for UoFiddlerApp {
         };
 
         app.refresh_valid_multis();
+        // UOFIDDLER_MAP=<radar|live|overview>,<facet>,<x>,<y>[,nodiff] sets the Map tab state (automated screenshots)
+        if let Ok(v) = std::env::var("UOFIDDLER_MAP") {
+            let p: Vec<&str> = v.split(',').map(|x| x.trim()).collect();
+            app.map_mode = match p.first().copied() {
+                Some("live") => MapMode::Live,
+                Some("overview") => MapMode::Overview,
+                _ => MapMode::Radar,
+            };
+            if let Some(n) = p.get(1).and_then(|x| x.parse().ok()) {
+                app.map_id = n;
+            }
+            if let Some(n) = p.get(2).and_then(|x| x.parse().ok()) {
+                app.map_x = n;
+            }
+            if let Some(n) = p.get(3).and_then(|x| x.parse().ok()) {
+                app.map_y = n;
+            }
+            app.map_use_diff = !p.contains(&"nodiff");
+        }
         app
     }
 }
@@ -1181,6 +1227,15 @@ impl UoFiddlerApp {
                 self.file_manager.get_file_path(&m_name),
                 self.file_manager.get_file_path(&s_idx),
                 self.file_manager.get_file_path(&s_mul),
+            );
+            let f = |n: String| self.file_manager.get_file_path(&n);
+            self.map_mgr.load_diff(
+                m_id,
+                f(format!("mapdif{}.mul", m_id)),
+                f(format!("mapdifl{}.mul", m_id)),
+                f(format!("stadif{}.mul", m_id)),
+                f(format!("stadifi{}.mul", m_id)),
+                f(format!("stadifl{}.mul", m_id)),
             );
         }
 
@@ -1726,30 +1781,117 @@ impl UoFiddlerApp {
     }
 
     fn update_map_view_custom(&mut self, ctx: &egui::Context, width_px: f32, height_px: f32) {
-        if let Some(rc) = &self.radar_col {
-            let block_px = (8.0 * self.map_zoom).max(4.0);
-            let num_bx = ((width_px / block_px).ceil() as u32 + 4).clamp(16, 240);
-            let num_by = ((height_px / block_px).ceil() as u32 + 4).clamp(12, 180);
+        match self.map_mode {
+            MapMode::Radar => {
+                if let Some(rc) = &self.radar_col {
+                    let block_px = (8.0 * self.map_zoom).max(4.0);
+                    let num_bx = ((width_px / block_px).ceil() as u32 + 4).clamp(16, 240);
+                    let num_by = ((height_px / block_px).ceil() as u32 + 4).clamp(12, 180);
 
-            let bx = self.map_x / 8;
-            let by = self.map_y / 8;
-            let start_bx = bx.saturating_sub(num_bx / 2);
-            let start_by = by.saturating_sub(num_by / 2);
+                    let bx = self.map_x / 8;
+                    let by = self.map_y / 8;
+                    let start_bx = bx.saturating_sub(num_bx / 2);
+                    let start_by = by.saturating_sub(num_by / 2);
 
-            if let Some((w, h, rgba)) = self.map_mgr.render_minimap(
-                self.map_id,
-                start_bx,
-                start_by,
-                num_bx,
-                num_by,
-                rc,
-                self.map_show_statics,
-            ) {
-                let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &rgba);
-                self.map_texture =
-                    Some(ctx.load_texture("map_render", img, egui::TextureOptions::NEAREST));
+                    if let Some((w, h, rgba)) = self.map_mgr.render_minimap(
+                        self.map_id,
+                        start_bx,
+                        start_by,
+                        num_bx,
+                        num_by,
+                        rc,
+                        self.map_show_statics,
+                        self.map_use_diff,
+                    ) {
+                        let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &rgba);
+                        self.map_texture =
+                            Some(ctx.load_texture("map_render", img, egui::TextureOptions::NEAREST));
+                    }
+                }
+            }
+            MapMode::Live => {
+                let Some(art) = &self.art_index else { return };
+                let lw = ((width_px / self.live_zoom) as i32).clamp(64, 2600);
+                let lh = ((height_px / self.live_zoom) as i32).clamp(64, 1800);
+                let c = LiveContext {
+                    map: &self.map_mgr,
+                    art,
+                    textures: self.texture_index.as_ref(),
+                    tiledata: self.tiledata.as_ref(),
+                };
+                let opt = LiveOptions {
+                    show_statics: self.map_show_statics,
+                    use_diff: self.map_use_diff,
+                    max_z: self.map_max_z,
+                    textured_slopes: true,
+                };
+                let buf = self.live_renderer.render(&c, self.map_id, self.map_x as i32, self.map_y as i32, lw, lh, opt);
+                let img = egui::ColorImage::from_rgba_unmultiplied([lw as usize, lh as usize], &buf);
+                self.map_texture = Some(ctx.load_texture("map_live", img, egui::TextureOptions::NEAREST));
+            }
+            MapMode::Overview => {}
+        }
+    }
+
+    /// Whole-facet overview: facetNN.mul (or Multimap.rle for the Britannia maps). Click to jump.
+    fn show_map_overview(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let want_multimap = self.overview_multimap && self.map_id <= 1;
+        let stale = self
+            .overview_tex
+            .as_ref()
+            .map_or(true, |(id, mm, ..)| *id != self.map_id || *mm != want_multimap);
+        if stale {
+            self.overview_tex = None;
+            let data = if want_multimap {
+                self.file_manager.get_file_path("multimap.rle").and_then(|p| std::fs::read(p).ok()).and_then(|d| decode_multimap(&d, true))
+            } else {
+                self.file_manager
+                    .get_file_path(&format!("facet0{}.mul", self.map_id))
+                    .and_then(|p| std::fs::read(p).ok())
+                    .and_then(|d| decode_facet(&d))
+            };
+            if let Some(m) = data {
+                let img = egui::ColorImage::from_rgba_unmultiplied([m.width as usize, m.height as usize], &m.rgba);
+                let tex = ctx.load_texture("map_overview", img, egui::TextureOptions::LINEAR);
+                self.overview_tex = Some((self.map_id, want_multimap, tex, m.width, m.height));
             }
         }
+        let Some((_, _, tex, iw, ih)) = &self.overview_tex else {
+            ui.label("Arquivo facet não encontrado para esta faceta.");
+            return;
+        };
+        let (iw, ih) = (*iw as f32, *ih as f32);
+        let avail = ui.available_size();
+        let scale = (avail.x / iw).min(avail.y / ih).max(0.05);
+        let (rect, resp) = ui.allocate_exact_size(egui::vec2(iw * scale, ih * scale), egui::Sense::click());
+        ui.painter().image(
+            tex.id(),
+            rect,
+            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            egui::Color32::WHITE,
+        );
+        // world size this image covers (Multimap.rle is a scaled-down Britannia)
+        let (ww, wh) = (self.map_mgr.actual_widths[self.map_id] as f32, MAP_DEFS[self.map_id].height as f32);
+        let to_world = |p: egui::Pos2| ((p.x - rect.min.x) / rect.width() * ww, (p.y - rect.min.y) / rect.height() * wh);
+        if let Some(p) = resp.hover_pos() {
+            let (wx, wy) = to_world(p);
+            egui::show_tooltip_at_pointer(ctx, ui.layer_id(), egui::Id::new("ov_tip"), |ui| {
+                ui.label(format!("X {}  Y {}", wx as i32, wy as i32));
+            });
+        }
+        if resp.clicked() {
+            if let Some(p) = resp.interact_pointer_pos() {
+                let (wx, wy) = to_world(p);
+                self.map_x = wx.clamp(0.0, ww - 1.0) as u32;
+                self.map_y = wy.clamp(0.0, wh - 1.0) as u32;
+                self.map_mode = MapMode::Live;
+                self.map_texture = None;
+            }
+        }
+        // marker of the current position
+        let mx = rect.min.x + self.map_x as f32 / ww * rect.width();
+        let my = rect.min.y + self.map_y as f32 / wh * rect.height();
+        ui.painter().circle_stroke(egui::pos2(mx, my), 6.0, egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(255, 80, 80)));
     }
 
     fn handle_keyboard_navigation(&mut self, ctx: &egui::Context) {
@@ -4922,6 +5064,57 @@ impl UoFiddlerApp {
         let mut map_changed = false;
 
         ui.horizontal(|ui| {
+            ui.label("🖥 Modo:");
+            for (m, name) in [
+                (MapMode::Radar, "📡 Radar"),
+                (MapMode::Live, "🎮 Live (isométrico)"),
+                (MapMode::Overview, "🗺 Visão geral (facet)"),
+            ] {
+                if ui.selectable_label(self.map_mode == m, name).clicked() {
+                    self.map_mode = m;
+                    map_changed = true;
+                }
+            }
+            ui.separator();
+            let (dl, ds) = self.map_mgr.diff_counts(self.map_id);
+            let has_diff = dl + ds > 0;
+            ui.add_enabled_ui(has_diff, |ui| {
+                if ui
+                    .checkbox(&mut self.map_use_diff, "mapdif")
+                    .on_hover_text(if has_diff {
+                        format!("Aplicar patches mapdif/stadif desta faceta ({} blocos de terreno, {} de statics)", dl, ds)
+                    } else {
+                        "Esta faceta não tem arquivos mapdif/stadif".to_string()
+                    })
+                    .changed()
+                {
+                    map_changed = true;
+                }
+            });
+            if self.map_mode == MapMode::Overview && self.map_id <= 1 {
+                ui.separator();
+                if ui.checkbox(&mut self.overview_multimap, "Multimap.rle").changed() {
+                    map_changed = true;
+                }
+            }
+            if self.map_mode == MapMode::Live {
+                ui.separator();
+                ui.label("Zoom:");
+                if ui.add(egui::Slider::new(&mut self.live_zoom, 0.5..=2.0)).changed() {
+                    map_changed = true;
+                }
+                ui.label("Z máx:");
+                if ui
+                    .add(egui::Slider::new(&mut self.map_max_z, -10..=127))
+                    .on_hover_text("Esconde statics acima desta altura (tire telhados)")
+                    .changed()
+                {
+                    map_changed = true;
+                }
+            }
+        });
+
+        ui.horizontal(|ui| {
             ui.label("🌐 Faceta:");
             for (m_id, name) in [
                 (0, "0: Felucca"),
@@ -4967,12 +5160,14 @@ impl UoFiddlerApp {
             {
                 map_changed = true;
             }
-            ui.label("Zoom:");
-            if ui
-                .add(egui::Slider::new(&mut self.map_zoom, 0.5..=4.0).text("x"))
-                .changed()
-            {
-                map_changed = true;
+            if self.map_mode == MapMode::Radar {
+                ui.label("Zoom:");
+                if ui
+                    .add(egui::Slider::new(&mut self.map_zoom, 0.5..=4.0).text("x"))
+                    .changed()
+                {
+                    map_changed = true;
+                }
             }
             if ui.checkbox(&mut self.map_show_statics, "Statics").changed() {
                 map_changed = true;
@@ -4980,6 +5175,11 @@ impl UoFiddlerApp {
         });
 
         ui.separator();
+
+        if self.map_mode == MapMode::Overview {
+            self.show_map_overview(ui, ctx);
+            return;
+        }
 
         // Canvas that fills 100% of the entire area
         egui::Frame::canvas(ui.style()).show(ui, |ui| {
@@ -4990,9 +5190,26 @@ impl UoFiddlerApp {
 
             if resp.dragged() {
                 let delta = resp.drag_delta();
-                let pan_scale = (1.0 / self.map_zoom).max(0.25);
-                self.map_x = (self.map_x as f32 - (delta.x * pan_scale)).clamp(0.0, 7168.0) as u32;
-                self.map_y = (self.map_y as f32 - (delta.y * pan_scale)).clamp(0.0, 4096.0) as u32;
+                let (max_x, max_y) = (
+                    self.map_mgr.actual_widths[self.map_id].saturating_sub(1) as f32,
+                    (MAP_DEFS[self.map_id].height - 1) as f32,
+                );
+                if self.map_mode == MapMode::Live {
+                    // screen = ((u - v) * 22, (u + v) * 22)
+                    let (dx, dy) = (delta.x / self.live_zoom / 22.0, delta.y / self.live_zoom / 22.0);
+                    let (du, dv) = ((dx + dy) / 2.0, (dy - dx) / 2.0);
+                    self.live_pan.0 += du;
+                    self.live_pan.1 += dv;
+                    let (iu, iv) = (self.live_pan.0.trunc(), self.live_pan.1.trunc());
+                    self.live_pan.0 -= iu;
+                    self.live_pan.1 -= iv;
+                    self.map_x = (self.map_x as f32 - iu).clamp(0.0, max_x) as u32;
+                    self.map_y = (self.map_y as f32 - iv).clamp(0.0, max_y) as u32;
+                } else {
+                    let pan_scale = (1.0 / self.map_zoom).max(0.25);
+                    self.map_x = (self.map_x as f32 - (delta.x * pan_scale)).clamp(0.0, max_x) as u32;
+                    self.map_y = (self.map_y as f32 - (delta.y * pan_scale)).clamp(0.0, max_y) as u32;
+                }
                 map_changed = true;
             }
 
@@ -5000,10 +5217,18 @@ impl UoFiddlerApp {
                 let scroll_y = ui.input(|i| i.raw_scroll_delta.y);
                 if scroll_y != 0.0 {
                     let factor = if scroll_y > 0.0 { 1.15 } else { 0.85 };
-                    let new_zoom = (self.map_zoom * factor).clamp(0.5, 4.0);
-                    if (new_zoom - self.map_zoom).abs() > 0.01 {
-                        self.map_zoom = new_zoom;
-                        map_changed = true;
+                    if self.map_mode == MapMode::Live {
+                        let z = (self.live_zoom * factor).clamp(0.5, 2.0);
+                        if (z - self.live_zoom).abs() > 0.01 {
+                            self.live_zoom = z;
+                            map_changed = true;
+                        }
+                    } else {
+                        let new_zoom = (self.map_zoom * factor).clamp(0.5, 4.0);
+                        if (new_zoom - self.map_zoom).abs() > 0.01 {
+                            self.map_zoom = new_zoom;
+                            map_changed = true;
+                        }
                     }
                 }
             }
