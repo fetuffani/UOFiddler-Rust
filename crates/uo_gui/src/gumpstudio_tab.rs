@@ -66,7 +66,8 @@ pub struct GumpStudioTab {
     favorites: Favorites,
     fav_name: String,
     resizepic_search: String,
-    resizepic_list: Option<Vec<u32>>,
+    resizepic_list: Vec<u32>,
+    resizepic_scan_pos: u32,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
@@ -94,7 +95,8 @@ impl Default for GumpStudioTab {
             favorites: Self::load_favorites(),
             fav_name: String::new(),
             resizepic_search: String::new(),
-            resizepic_list: None,
+            resizepic_list: Vec::new(),
+            resizepic_scan_pos: 0,
             text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
@@ -870,26 +872,39 @@ impl GumpStudioTab {
 
     /// Browser of the resizepic frames found in the client gumps; clicking one sets it on the selected background.
     fn resizepic_window(&mut self, ctx: &egui::Context, d: &GumpStudioData) {
-        if self.resizepic_list.is_none() {
-            self.resizepic_list = Some(match d.gump_index {
-                Some(gi) => find_resizepics(0xFFFF, |id| {
-                    let i = id as usize;
-                    if !gi.is_valid(i) {
-                        return None;
-                    }
-                    if gi.is_uop() {
-                        gi.get_data(i).filter(|b| b.len() >= 8).map(|b| (u32::from_le_bytes([b[0], b[1], b[2], b[3]]), u32::from_le_bytes([b[4], b[5], b[6], b[7]])))
-                    } else {
-                        Some((((gi.entries[i].extra >> 16) & 0xFFFF) as u32, (gi.entries[i].extra & 0xFFFF) as u32))
-                    }
-                }, |id| {
-                    let parts: Vec<GumpBitmap> = (0..9).filter_map(|k| decode_gump_id(gi, id + k)).collect();
-                    frame_tiles_seamlessly(&parts)
-                }),
-                None => Vec::new(),
-            });
+        const MAX_GUMP_ID: u32 = 0xFFFF;
+        if let Some(gi) = d.gump_index {
+            let start = std::time::Instant::now();
+            let mut steps = 0u32;
+            while self.resizepic_scan_pos + 8 <= MAX_GUMP_ID {
+                let id = self.resizepic_scan_pos;
+                let found = is_resizepic_at(
+                    id,
+                    |k| gi.gump_size(k as usize),
+                    |k| {
+                        let parts: Vec<GumpBitmap> = (0..9).filter_map(|p| decode_gump_id(gi, k + p)).collect();
+                        frame_tiles_seamlessly(&parts)
+                    },
+                );
+                if found {
+                    self.resizepic_list.push(id);
+                    self.resizepic_scan_pos += 9;
+                } else {
+                    self.resizepic_scan_pos += 1;
+                }
+                steps += 1;
+                if steps >= 512 && start.elapsed() >= std::time::Duration::from_millis(8) {
+                    break;
+                }
+            }
+            if self.resizepic_scan_pos + 8 <= MAX_GUMP_ID {
+                ctx.request_repaint();
+            }
+        } else {
+            self.resizepic_scan_pos = MAX_GUMP_ID;
         }
-        let list = self.resizepic_list.clone().unwrap_or_default();
+        let scanning = self.resizepic_scan_pos + 8 <= MAX_GUMP_ID;
+        let count = self.resizepic_list.len();
         let mut open = true;
         let mut pick: Option<u32> = None;
         egui::Window::new(t!("gs.resizepic.title")).open(&mut open).fixed_size([560.0, 420.0]).show(ctx, |ui| {
@@ -897,28 +912,38 @@ impl GumpStudioTab {
                 ui.label(t!("gs.resizepic.search"));
                 ui.text_edit_singleline(&mut self.resizepic_search);
             });
-            ui.label(t!("gs.resizepic.count", n = list.len()));
+            if scanning {
+                let frac = (self.resizepic_scan_pos as f32 / (MAX_GUMP_ID - 8) as f32).clamp(0.0, 1.0);
+                let pct = (frac * 100.0).round() as u32;
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.add(egui::ProgressBar::new(frac).text(t!("gs.resizepic.loading", pct = pct, n = count)));
+                });
+            } else {
+                ui.label(t!("gs.resizepic.count", n = count));
+            }
             ui.label(t!("gs.resizepic.tip"));
             ui.separator();
             let q = self.resizepic_search.trim().to_string();
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+            let shown: Vec<u32> = self.resizepic_list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
+            let cols = 5usize;
+            let num_rows = (shown.len() + cols - 1) / cols;
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(ui, 96.0, num_rows, |ui, row_range| {
                 egui::Grid::new("gs_resizepic_grid").spacing([8.0, 8.0]).show(ui, |ui| {
-                    let shown: Vec<u32> = list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
-                    for (n, id) in shown.into_iter().enumerate() {
-                        ui.vertical(|ui| {
-                            match self.resize_tex(ctx, d, id, 96, 72) {
-                                Some(t) => {
+                    for row in row_range {
+                        let start_idx = row * cols;
+                        let end_idx = (start_idx + cols).min(shown.len());
+                        for &id in &shown[start_idx..end_idx] {
+                            ui.vertical(|ui| {
+                                if let Some(t) = self.resize_tex(ctx, d, id, 96, 72) {
                                     if ui.add(egui::ImageButton::new((t.id(), t.size_vec2()))).clicked() {
                                         pick = Some(id);
                                     }
                                 }
-                                None => {}
-                            }
-                            ui.small(id.to_string());
-                        });
-                        if (n + 1) % 5 == 0 {
-                            ui.end_row();
+                                ui.small(id.to_string());
+                            });
                         }
+                        ui.end_row();
                     }
                 });
             });

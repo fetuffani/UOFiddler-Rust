@@ -170,6 +170,48 @@ impl FileIndex {
         }
     }
 
+    /// Reads the `(width, height)` of a gump entry without decoding the full bitmap.
+    pub fn gump_size(&self, index: usize) -> Option<(u32, u32)> {
+        if !self.is_valid(index) {
+            return None;
+        }
+        let entry = self.entries[index];
+        if !self.is_uop && entry.compression == 0 {
+            return Some((((entry.extra >> 16) & 0xFFFF) as u32, (entry.extra & 0xFFFF) as u32));
+        }
+        let mmap = self.mmap.as_ref()?;
+        let start = entry.lookup as usize;
+        let end = start.checked_add(entry.length as usize)?;
+        if end > mmap.len() {
+            return None;
+        }
+        let slice = &mmap[start..end];
+        let mut hdr = [0u8; 8];
+        match entry.compression {
+            0 => {
+                if slice.len() < 8 {
+                    return None;
+                }
+                hdr.copy_from_slice(&slice[..8]);
+            }
+            1 => {
+                let mut decoder = ZlibDecoder::new(slice);
+                decoder.read_exact(&mut hdr).ok()?;
+            }
+            _ => {
+                let data = self.get_data(index)?;
+                if data.len() < 8 {
+                    return None;
+                }
+                hdr.copy_from_slice(&data[..8]);
+            }
+        }
+        Some((
+            u32::from_le_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]),
+            u32::from_le_bytes([hdr[4], hdr[5], hdr[6], hdr[7]]),
+        ))
+    }
+
     /// Returns the raw (decompressed if needed) byte payload for index.
     pub fn get_data(&self, index: usize) -> Option<Vec<u8>> {
         if !self.is_valid(index) {
