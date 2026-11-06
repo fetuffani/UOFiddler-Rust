@@ -1,0 +1,10 @@
+# 0xCE - Não documentado
+Direção: servidor -> cliente. Tamanho: variável (id + u16 length + payload; length é o tamanho total do pacote) (conforme a tabela).
+Finalidade: Id sem layout conhecido.
+
+Convenções: offsets contados a partir do primeiro byte do pacote (o id); inteiros de mais de um byte em big-endian; u8/u16/u32 sem sinal, i8/i16/i32 com sinal.
+
+Notas: Não especificado.
+
+## Referência de implementação
+- Nenhuma implementação de referência.
