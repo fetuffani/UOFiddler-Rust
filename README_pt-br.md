@@ -172,7 +172,7 @@ UOFiddler-Rust/
 ## 📚 Documentação
 
 - [`docs/formats`](docs/formats/README.md): um documento por família de arquivos do cliente (MUL/IDX, mapas, tabelas, animações, contêineres UOP, `.def`, localização…), cobrindo todos os arquivos da pasta de um cliente 7.x.
-- [`docs/protocol`](docs/protocol/README.md): pacotes e comandos de layout de gump.
+- [`docs/protocol`](docs/protocol/README.md): pacotes, comandos de layout de gump e fluxos (login, gumps, editor de casas, barcos). Tradução para inglês em [`docs/en`](docs/en/formats/README.md).
 
 ---
 
