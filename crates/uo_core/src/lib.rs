@@ -22,6 +22,7 @@ pub mod radar_col;
 pub mod sounds;
 pub mod speech;
 pub mod textures;
+pub mod uop_convert;
 pub mod tiledata;
 
 pub use anim_convert::*;
@@ -48,4 +49,5 @@ pub use radar_col::*;
 pub use sounds::*;
 pub use speech::*;
 pub use textures::*;
+pub use uop_convert::*;
 pub use tiledata::*;

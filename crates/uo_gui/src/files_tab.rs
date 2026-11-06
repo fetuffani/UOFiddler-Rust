@@ -44,6 +44,7 @@ pub struct FilesTab {
     uop_preview: Option<(String, bool)>, // (text, is_text)
     uop_search: String,
     image_zoom: f32,
+    convert_msg: Option<String>,
 }
 
 impl Default for FilesTab {
@@ -63,6 +64,7 @@ impl Default for FilesTab {
             uop_preview: None,
             uop_search: String::new(),
             image_zoom: 0.4,
+            convert_msg: None,
         }
     }
 }
@@ -126,6 +128,7 @@ impl FilesTab {
 
     fn open(&mut self, idx: usize, ctx: &egui::Context) {
         self.selected = Some(idx);
+        self.convert_msg = None;
         self.uop_selected = None;
         self.uop_preview = None;
         self.hex_offset = 0;
@@ -270,10 +273,46 @@ impl FilesTab {
             if kind == ClientFileKind::Cliloc && ui.button("Abrir na aba Cliloc").clicked() {
                 goto = Some(UoTab::Cliloc);
             }
+            self.show_convert(ui, &name, &path);
             ui.separator();
             self.show_content(ui, &path, kind);
         });
         goto
+    }
+
+    /// UOP <-> MUL conversion for the legacy art / gump / map containers.
+    fn show_convert(&mut self, ui: &mut egui::Ui, name: &str, path: &Path) {
+        let lower = name.to_lowercase();
+        let kinds = LegacyKind::all();
+        let as_uop = kinds.iter().copied().find(|k| k.uop_name().to_lowercase() == lower);
+        let as_mul = kinds.iter().copied().find(|k| {
+            let (idx, mul) = k.mul_names();
+            mul.to_lowercase() == lower || idx.map_or(false, |i| i.to_lowercase() == lower)
+        });
+        let Some(dir) = path.parent() else { return };
+        let out = dir.join("uofiddler_converted");
+        ui.horizontal(|ui| {
+            if let Some(k) = as_uop {
+                if ui.button("🔄 Converter UOP → MUL/IDX").on_hover_text(format!("Saída: {}", out.display())).clicked() {
+                    self.convert_msg = Some(match uop_to_mul(k, path, &out) {
+                        Ok(r) => format!("✓ {} entradas convertidas em {}", r.entries, out.display()),
+                        Err(e) => format!("✗ {}", e),
+                    });
+                }
+            }
+            if let Some(k) = as_mul {
+                if ui.button("🔄 Converter MUL/IDX → UOP").on_hover_text(format!("Saída: {}", out.display())).clicked() {
+                    let _ = std::fs::create_dir_all(&out);
+                    self.convert_msg = Some(match mul_to_uop(k, dir, &out.join(k.uop_name())) {
+                        Ok(r) => format!("✓ {} entradas gravadas em {}", r.entries, out.join(k.uop_name()).display()),
+                        Err(e) => format!("✗ {}", e),
+                    });
+                }
+            }
+            if let Some(m) = &self.convert_msg {
+                ui.label(m);
+            }
+        });
     }
 
     fn show_content(&mut self, ui: &mut egui::Ui, path: &Path, kind: ClientFileKind) {
