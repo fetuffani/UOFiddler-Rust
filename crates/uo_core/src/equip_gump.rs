@@ -73,6 +73,9 @@ impl EquipGumpMap {
         let mut gump = male;
         if female && (50000..60000).contains(&male) && exists(male + 10000) {
             gump = male + 10000;
+        } else if !female && (50000..60000).contains(&male) && !exists(male) && exists(male + 10000) {
+            // the gump of the owner's sex is missing: use the other sex's gump (as the game client does)
+            gump = male + 10000;
         }
         if let Some(&(g2, h2)) = self.gump_def.get(&gump) {
             gump = g2;
@@ -115,6 +118,21 @@ impl EquipGumpMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_gump_falls_back_to_the_other_sex() {
+        let m = EquipGumpMap::default();
+        // only the female gump (60434) exists
+        let only_female = |g: u32| g == 60434;
+        assert_eq!(m.gump_for_anim(400, 434, false, only_female).0, 60434, "male owner falls back to the female gump");
+        assert_eq!(m.gump_for_anim(401, 434, true, only_female).0, 60434);
+        // only the male gump (50434) exists
+        let only_male = |g: u32| g == 50434;
+        assert_eq!(m.gump_for_anim(401, 434, true, only_male).0, 50434, "female owner falls back to the male gump");
+        assert_eq!(m.gump_for_anim(400, 434, false, only_male).0, 50434);
+        // nothing exists: the male id is returned (the caller draws nothing)
+        assert_eq!(m.gump_for_anim(400, 434, false, |_| false).0, 50434);
+    }
 
     #[test]
     fn convert_anim_uses_equipconv() {
