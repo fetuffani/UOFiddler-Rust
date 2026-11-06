@@ -150,6 +150,21 @@ impl GumpDoc {
         id
     }
 
+    /// Removes the elements at the given indices (ignoring out-of-range or duplicate indices).
+    /// Returns `true` when at least one element was removed.
+    pub fn remove_elements(&mut self, idx: &[usize]) -> bool {
+        let mut sorted: Vec<usize> = idx.iter().copied().filter(|&i| i < self.elements.len()).collect();
+        sorted.sort_unstable();
+        sorted.dedup();
+        if sorted.is_empty() {
+            return false;
+        }
+        for i in sorted.into_iter().rev() {
+            self.elements.remove(i);
+        }
+        true
+    }
+
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_default()
     }
@@ -683,6 +698,21 @@ mod tests {
         // old files without the field still load (group = 0)
         let old = r#"{"name":"x","x":0,"y":0,"closable":true,"movable":true,"disposable":true,"resizable":false,"elements":[{"name":"a","x":1,"y":2,"w":3,"h":4,"page":0,"kind":{"type":"Alpha"}}]}"#;
         assert_eq!(GumpDoc::from_json(old).unwrap().elements[0].group, 0);
+    }
+
+    #[test]
+    fn remove_elements_handles_single_and_multiple_selection() {
+        let mut d = GumpDoc::default();
+        d.elements = vec![
+            GumpElement { name: "a".into(), ..el(ElementKind::Alpha, 0, 0, 10, 10, 0) },
+            GumpElement { name: "b".into(), ..el(ElementKind::Alpha, 5, 5, 10, 10, 0) },
+            GumpElement { name: "c".into(), ..el(ElementKind::Alpha, 9, 9, 10, 10, 0) },
+            GumpElement { name: "d".into(), ..el(ElementKind::Alpha, 12, 12, 10, 10, 0) },
+        ];
+        assert!(!d.remove_elements(&[99]), "out-of-range index removes nothing");
+        assert!(d.remove_elements(&[2, 0, 2]), "deduplicates and removes in reverse order");
+        let names: Vec<&str> = d.elements.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["b", "d"]);
     }
 
     #[test]
