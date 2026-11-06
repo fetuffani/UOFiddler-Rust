@@ -25,16 +25,22 @@ pub struct MultiStructure {
 }
 
 impl MultiStructure {
+    /// Parses one multi, guessing the record size from this entry alone. This is ambiguous for
+    /// lengths divisible by 48; prefer `parse_sized` with `detect_multi_record_size`.
     pub fn parse(multi_id: u32, data: &[u8]) -> Option<Self> {
-        if data.is_empty() {
-            return None;
-        }
-
         let record_size = if data.len() % 16 == 0 && data.len() % 12 != 0 {
             16
         } else {
             12
         };
+        Self::parse_sized(multi_id, data, record_size)
+    }
+
+    /// Parses one multi with an explicit record size (12 = classic, 16 = High Seas / 7.0.9+).
+    pub fn parse_sized(multi_id: u32, data: &[u8], record_size: usize) -> Option<Self> {
+        if data.is_empty() || (record_size != 12 && record_size != 16) {
+            return None;
+        }
 
         let count = data.len() / record_size;
         let mut components = Vec::with_capacity(count);
@@ -555,4 +561,29 @@ pub fn load_multilist_entries(file_manager: &crate::FileManager) -> Vec<Multilis
     list.sort_by_key(|e| e.id);
     list.dedup_by_key(|e| e.id);
     list
+}
+
+/// Decides the multi.mul record size for the whole file: if any entry length is not a multiple
+/// of 12 the file uses 16-byte records; if any is not a multiple of 16 it uses 12-byte records.
+/// A single entry cannot decide this (lengths divisible by 48 fit both).
+pub fn detect_multi_record_size(index: &crate::FileIndex) -> usize {
+    let (mut not12, mut not16) = (0usize, 0usize);
+    for id in 0..index.entries.len() {
+        if !index.is_valid(id) {
+            continue;
+        }
+        let len = index.entries[id].length as usize;
+        if len % 12 != 0 {
+            not12 += 1;
+        }
+        if len % 16 != 0 {
+            not16 += 1;
+        }
+    }
+    match (not12 > 0, not16 > 0) {
+        (true, false) => 16,
+        (false, true) => 12,
+        // fully ambiguous or inconsistent: High Seas (16) is the format of every modern client
+        _ => 16,
+    }
 }

@@ -141,7 +141,7 @@ fn test_debug_all() {
     );
     if let Some(rc_path) = fm.get_file_path("radarcol.mul") {
         let rc = RadarColManager::from_file(&rc_path).unwrap();
-        let mini = mm.render_minimap(0, 175, 210, 32, 32, &rc, true);
+        let mini = mm.render_minimap(0, 175, 210, 32, 32, &rc, true, true);
         println!(
             "Map 0 Britain minimap (32x32 blocks = 256x256 px): {:?}",
             mini.as_ref().map(|(w, h, _)| (*w, *h))

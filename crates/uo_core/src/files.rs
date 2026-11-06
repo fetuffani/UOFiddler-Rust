@@ -109,6 +109,20 @@ impl FileManager {
         None
     }
 
+    /// All files found in the classic and enhanced directories: (display name, path, is_enhanced).
+    pub fn list_files(&self) -> Vec<(String, PathBuf, bool)> {
+        let mut v: Vec<(String, PathBuf, bool)> = Vec::new();
+        for (map, ec) in [(&self.file_map, false), (&self.ec_file_map, true)] {
+            for p in map.values() {
+                if let Some(n) = p.file_name().and_then(|n| n.to_str()) {
+                    v.push((n.to_string(), p.clone(), ec));
+                }
+            }
+        }
+        v.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+        v
+    }
+
     pub fn get_ec_file_path(&self, filename: &str) -> Option<PathBuf> {
         self.ec_file_map.get(&filename.to_lowercase()).cloned()
     }
