@@ -41,9 +41,9 @@ More criteria can be added to this list. / Novos critérios podem ser acrescenta
 
 ## Git LFS
 
-Binary assets (images, game data files, archives, executables) are stored with [Git LFS](https://git-lfs.com) (see `.gitattributes`). Install it once with `git lfs install` before committing such files; the CI checkout already downloads LFS files. Files that were committed before LFS was enabled (for example `packaging/linux/uofiddler.png`) stay as regular files.
+Binary assets (images, game data files, archives, executables) are stored with [Git LFS](https://git-lfs.com) (see `.gitattributes`). Install it once with `git lfs install` before committing such files; the CI checkout does not download LFS files yet (the Linux job runs in a container without `git-lfs`), so nothing the build needs may be stored in LFS until the workflow installs `git-lfs` and sets `lfs: true`. Files that were committed before LFS was enabled (for example `packaging/linux/uofiddler.png`) stay as regular files.
 
-Arquivos binários (imagens, arquivos de dados do jogo, pacotes, executáveis) ficam no [Git LFS](https://git-lfs.com) (veja `.gitattributes`). Instale uma vez com `git lfs install` antes de commitar esses arquivos; o checkout do CI já baixa os arquivos LFS. Arquivos commitados antes de ativar o LFS (por exemplo `packaging/linux/uofiddler.png`) continuam como arquivos normais.
+Arquivos binários (imagens, arquivos de dados do jogo, pacotes, executáveis) ficam no [Git LFS](https://git-lfs.com) (veja `.gitattributes`). Instale uma vez com `git lfs install` antes de commitar esses arquivos; o checkout do CI ainda não baixa arquivos LFS (o job Linux roda num container sem `git-lfs`), então nada que o build precise pode ficar no LFS até o workflow instalar o `git-lfs` e usar `lfs: true`. Arquivos commitados antes de ativar o LFS (por exemplo `packaging/linux/uofiddler.png`) continuam como arquivos normais.
 
 ## Process / Processo
 
