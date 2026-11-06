@@ -1226,7 +1226,7 @@ impl UoFiddlerApp {
         }
 
         // 12. Cliloc
-        if let Some(cl_path) = self.file_manager.get_file_path("cliloc.enu") {
+        if let Some(cl_path) = self.file_manager.language_file("cliloc") {
             self.cliloc = ClilocManager::from_file(cl_path).ok();
         }
 
@@ -2520,6 +2520,7 @@ impl eframe::App for UoFiddlerApp {
                     art: self.art_index.as_ref(),
                     hues: self.hues.as_ref(),
                     cliloc: self.cliloc.as_ref(),
+                    cliloc_lang: &self.file_manager.language,
                 };
                 self.gumpstudio_tab.show(ui, ctx, &data);
             }
@@ -4933,6 +4934,27 @@ impl UoFiddlerApp {
     fn render_cliloc_tab(&mut self, ui: &mut egui::Ui) {
         ui.heading("Cliloc Localization Table");
         ui.horizontal(|ui| {
+            // language of Cliloc.<suffix> (also used by the GumpStudio preview and saved in the settings)
+            let langs = self.file_manager.available_languages();
+            if !langs.is_empty() {
+                let mut chosen = self.file_manager.language.clone();
+                egui::ComboBox::from_label("Idioma")
+                    .selected_text(language_name(&chosen))
+                    .show_ui(ui, |ui| {
+                        for l in &langs {
+                            ui.selectable_value(&mut chosen, l.clone(), language_name(l));
+                        }
+                    });
+                if chosen != self.file_manager.language {
+                    self.file_manager.language = chosen;
+                    self.file_manager.save_settings();
+                    self.cliloc = self
+                        .file_manager
+                        .language_file("cliloc")
+                        .and_then(|p| ClilocManager::from_file(p).ok());
+                }
+                ui.separator();
+            }
             ui.label("Buscar Cliloc:");
             ui.text_edit_singleline(&mut self.cliloc_search);
             if ui.button("✖").clicked() {
@@ -4990,7 +5012,7 @@ impl UoFiddlerApp {
                     });
             }
         } else {
-            ui.label("cliloc.enu não encontrado.");
+            ui.label("Arquivo Cliloc não encontrado para o idioma escolhido.");
         }
     }
 

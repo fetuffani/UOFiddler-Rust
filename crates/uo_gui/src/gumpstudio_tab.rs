@@ -14,6 +14,8 @@ pub struct GumpStudioData<'a> {
     pub art: Option<&'a FileIndex>,
     pub hues: Option<&'a HuesManager>,
     pub cliloc: Option<&'a ClilocManager>,
+    /// language of the loaded cliloc (cache key)
+    pub cliloc_lang: &'a str,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -54,6 +56,7 @@ pub struct GumpStudioTab {
     status: String,
     tex: HashMap<TexKey, Option<egui::TextureHandle>>,
     cliloc_cache: HashMap<u32, String>,
+    cliloc_cache_lang: String,
     drag_started: bool,
     uni_fonts: HashMap<u8, Option<UnicodeFont>>,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
@@ -73,6 +76,7 @@ impl Default for GumpStudioTab {
             status: String::new(),
             tex: HashMap::new(),
             cliloc_cache: HashMap::new(),
+            cliloc_cache_lang: String::new(),
             drag_started: false,
             uni_fonts: HashMap::new(),
             text_tex: HashMap::new(),
@@ -214,6 +218,10 @@ impl GumpStudioTab {
     }
 
     fn cliloc_text(&mut self, d: &GumpStudioData, n: u32) -> String {
+        if self.cliloc_cache_lang != d.cliloc_lang {
+            self.cliloc_cache.clear();
+            self.cliloc_cache_lang = d.cliloc_lang.to_string();
+        }
         if let Some(t) = self.cliloc_cache.get(&n) {
             return t.clone();
         }
