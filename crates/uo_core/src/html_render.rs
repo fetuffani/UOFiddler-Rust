@@ -346,6 +346,14 @@ pub fn render_html(font: &UnicodeFont, html: &str, default_color: [u8; 4], width
     Some((ow, oh, out))
 }
 
+/// The text of `html` without any tag (entities decoded).
+pub fn strip_html_tags(html: &str) -> String {
+    tokenize(html)
+        .into_iter()
+        .filter_map(|t| if let Tok::Text(s) = t { Some(decode_entities(&s)) } else { None })
+        .collect()
+}
+
 /// Wraps the characters `start..end` of `text` with `open` and `close` and returns the new text and
 /// the character range of the wrapped content. With an empty selection the tags are inserted
 /// around the cursor.
@@ -512,6 +520,11 @@ mod tests {
         assert_eq!(sel, (3, 8));
         let (t2, _) = wrap_selection("ab", 1, 1, "<i>", "</i>");
         assert_eq!(t2, "a<i></i>b");
+    }
+
+    #[test]
+    fn strips_tags() {
+        assert_eq!(strip_html_tags("<b>a</b> &lt;x&gt; <br>c"), "a <x> c");
     }
 
     #[test]

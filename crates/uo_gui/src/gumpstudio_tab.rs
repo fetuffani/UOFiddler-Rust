@@ -59,6 +59,8 @@ pub struct GumpStudioTab {
     cliloc_cache_lang: String,
     drag_started: bool,
     uni_fonts: HashMap<u8, Option<UnicodeFont>>,
+    html_tex: HashMap<(i32, String), Option<egui::TextureHandle>>,
+    html_color: [u8; 3],
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
@@ -79,9 +81,13 @@ impl Default for GumpStudioTab {
             cliloc_cache_lang: String::new(),
             drag_started: false,
             uni_fonts: HashMap::new(),
+            html_tex: HashMap::new(),
+            html_color: [255, 80, 80],
             text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
+        // UOFIDDLER_GS_SELECT=<element index> selects an element on startup (automated screenshots)
+        t.selected = std::env::var("UOFIDDLER_GS_SELECT").ok().and_then(|v| v.parse().ok());
         t
     }
 }
@@ -92,12 +98,13 @@ impl GumpStudioTab {
         d.name = "ExampleGump".into();
         let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind };
         d.elements = vec![
-            mk("background", ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 180),
+            mk("background", ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 240),
             mk("title", ElementKind::Label { text: "Example gump".into(), hue: 52, font: 1, ascii: false }, 20, 15, 0, 0),
             mk("name_entry", ElementKind::TextEntry { hue: 0, text: "type here".into(), id: 0 }, 20, 50, 200, 20),
             mk("opt", ElementKind::Checkbox { off: 210, on: 211, checked: true, id: 0 }, 20, 85, 0, 0),
             mk("opt_text", ElementKind::Label { text: "Enable".into(), hue: 0, font: 1, ascii: false }, 50, 87, 0, 0),
             mk("ok", ElementKind::Button { normal: 247, pressed: 248, action: ButtonAction::Reply, page: 0, id: 0 }, 20, 130, 0, 0),
+            mk("info", ElementKind::Html { text: "<center><b>HTML</b> no gump</center><basefont color=\"#ffd24a\">Texto <i>colorido</i> e <u>sublinhado</u></basefont><br><big>grande</big> <small>pequeno</small>".into(), cliloc: 0, background: true, scrollbar: false }, 20, 165, 260, 60),
             mk("ok_text", ElementKind::Label { text: "OK".into(), hue: 0, font: 1, ascii: false }, 55, 132, 0, 0),
         ];
         d
@@ -217,6 +224,21 @@ impl GumpStudioTab {
         tex
     }
 
+    /// HTML text drawn like the client does (UO Unicode font 1, tags simulated), wrapped at `wrap` px.
+    fn html_texture(&mut self, ctx: &egui::Context, d: &GumpStudioData, html: &str, wrap: i32) -> Option<egui::TextureHandle> {
+        let key = (wrap, html.to_string());
+        if let Some(t) = self.html_tex.get(&key) {
+            return t.clone();
+        }
+        let f = self.uni_fonts.entry(1).or_insert_with(|| d.file_manager.get_file_path("unifont1.mul").and_then(|p| UnicodeFont::from_file(p).ok()));
+        let rendered = f.as_ref().and_then(|f| render_html(f, html, [235, 235, 235, 255], wrap));
+        let tex = rendered.map(|(w, h, rgba)| {
+            ctx.load_texture(format!("gs_html_{}", self.html_tex.len()), egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba), egui::TextureOptions::NEAREST)
+        });
+        self.html_tex.insert(key, tex.clone());
+        tex
+    }
+
     fn cliloc_text(&mut self, d: &GumpStudioData, n: u32) -> String {
         if self.cliloc_cache_lang != d.cliloc_lang {
             self.cliloc_cache.clear();
@@ -276,7 +298,7 @@ impl GumpStudioTab {
         }
 
         egui::SidePanel::left("gs_left").resizable(true).default_width(250.0).show_inside(ui, |ui| self.element_list(ui));
-        egui::SidePanel::right("gs_right").resizable(true).default_width(290.0).show_inside(ui, |ui| self.properties(ui, ctx, d));
+        egui::SidePanel::right("gs_right").resizable(true).default_width(360.0).show_inside(ui, |ui| self.properties(ui, ctx, d));
         egui::CentralPanel::default().show_inside(ui, |ui| self.canvas(ui, ctx, d));
     }
 
@@ -538,7 +560,84 @@ impl GumpStudioTab {
                     Self::gump_field(ui, "Cliloc (0 = texto):", cliloc);
                     if *cliloc == 0 {
                         ui.label("HTML:");
-                        ui.text_edit_multiline(text);
+                        let id = egui::Id::new(("gs_html_text", i));
+                        let n = text.chars().count();
+                        let sel = egui::TextEdit::load_state(ctx, id)
+                            .and_then(|st| st.cursor.char_range())
+                            .map(|r| (r.primary.index, r.secondary.index))
+                            .unwrap_or((n, n));
+                        let mut apply: Option<(String, String)> = None;
+                        let mut strip = false;
+                        let tag = |o: &str, c: &str| Some((o.to_string(), c.to_string()));
+                        ui.horizontal_wrapped(|ui| {
+                            if ui.button(egui::RichText::new("B").strong()).on_hover_text("Negrito <b>").clicked() {
+                                apply = tag("<b>", "</b>");
+                            }
+                            if ui.button(egui::RichText::new("I").italics()).on_hover_text("Itálico <i>").clicked() {
+                                apply = tag("<i>", "</i>");
+                            }
+                            if ui.button(egui::RichText::new("U").underline()).on_hover_text("Sublinhado <u>").clicked() {
+                                apply = tag("<u>", "</u>");
+                            }
+                            if ui.button("A-").on_hover_text("Menor <small>").clicked() {
+                                apply = tag("<small>", "</small>");
+                            }
+                            if ui.button("A+").on_hover_text("Maior <big>").clicked() {
+                                apply = tag("<big>", "</big>");
+                            }
+                            egui::ComboBox::from_id_salt(("gs_html_size", i)).selected_text("Tamanho").width(70.0).show_ui(ui, |ui| {
+                                for sz in [1, 2, 3, 4, 5, 7] {
+                                    if ui.selectable_label(false, sz.to_string()).clicked() {
+                                        apply = tag(&format!("<basefont size=\"{}\">", sz), "</basefont>");
+                                    }
+                                }
+                            });
+                            egui::ComboBox::from_id_salt(("gs_html_head", i)).selected_text("Título").width(60.0).show_ui(ui, |ui| {
+                                for h in 1..=6 {
+                                    if ui.selectable_label(false, format!("H{}", h)).clicked() {
+                                        apply = tag(&format!("<h{}>", h), &format!("</h{}>", h));
+                                    }
+                                }
+                            });
+                        });
+                        ui.horizontal_wrapped(|ui| {
+                            ui.color_edit_button_srgb(&mut self.html_color);
+                            if ui.button("Cor").on_hover_text("Aplica a cor à seleção <basefont color>").clicked() {
+                                let c = self.html_color;
+                                apply = tag(&format!("<basefont color=\"#{:02x}{:02x}{:02x}\">", c[0], c[1], c[2]), "</basefont>");
+                            }
+                            if ui.button("⬅").on_hover_text("Alinhar à esquerda").clicked() {
+                                apply = tag("<div align=\"left\">", "</div>");
+                            }
+                            if ui.button("↔").on_hover_text("Centralizar <center>").clicked() {
+                                apply = tag("<center>", "</center>");
+                            }
+                            if ui.button("➡").on_hover_text("Alinhar à direita").clicked() {
+                                apply = tag("<div align=\"right\">", "</div>");
+                            }
+                            if ui.button("Link").on_hover_text("Link <a href>").clicked() {
+                                apply = tag("<a href=\"\">", "</a>");
+                            }
+                            if ui.button("↵").on_hover_text("Quebra de linha <br>").clicked() {
+                                apply = Some(("<br>".into(), String::new()));
+                            }
+                            if ui.button("Limpar").on_hover_text("Remover todas as tags").clicked() {
+                                strip = true;
+                            }
+                        });
+                        ui.add(egui::TextEdit::multiline(text).id(id).desired_rows(6).desired_width(f32::INFINITY));
+                        if strip {
+                            *text = strip_html_tags(text);
+                        }
+                        if let Some((o, c)) = apply {
+                            let (a, b) = if c.is_empty() { (sel.0.max(sel.1), sel.0.max(sel.1)) } else { sel };
+                            let (new, (s0, s1)) = wrap_selection(text, a, b, &o, &c);
+                            *text = new;
+                            if let Some(mut st) = egui::TextEdit::load_state(ctx, id) {
+                                st.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(s0), egui::text::CCursor::new(s1))));
+                                st.store(ctx, id);
+                            }
+                        }
                     }
                     ui.checkbox(background, "fundo");
                     ui.checkbox(scrollbar, "barra de rolagem");
@@ -739,7 +838,7 @@ impl GumpStudioTab {
                     p.rect_filled(r, 0.0, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 120));
                 }
                 let t = if *cliloc != 0 { self.cliloc_text(d, *cliloc) } else { text.clone() };
-                match self.text_texture(ctx, d, &t, 1, false, 0, Some(e.w.max(8) - 4)) {
+                match self.html_texture(ctx, d, &t, e.w.max(8) - 4) {
                     Some(tex) => {
                         let sz = tex.size_vec2() * (r.width() / (e.w.max(1) as f32));
                         p.with_clip_rect(r).image(tex.id(), egui::Rect::from_min_size(r.min + egui::vec2(2.0, 2.0), sz), full, egui::Color32::WHITE);
