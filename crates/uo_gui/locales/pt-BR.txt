@@ -499,3 +499,4 @@ items.export.tip = Salvar imagem do item na pasta 'exported_art/'
 land.export.tip = Salvar imagem do terreno na pasta 'exported_art/'
 gumps.export.tip = Salvar imagem do Gump na pasta 'exported_art/'
 textures.export.tip = Salvar imagem da textura na pasta 'exported_art/'
+gs.resizepic.manual = Lista manual: ~/.config/uofiddler/gumpstudio_resizepics.txt (valid <id> / invalid <id>-<id>)

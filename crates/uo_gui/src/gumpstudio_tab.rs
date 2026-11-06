@@ -68,6 +68,7 @@ pub struct GumpStudioTab {
     resizepic_search: String,
     resizepic_list: Vec<u32>,
     resizepic_scan_pos: u32,
+    resizepic_lists: Option<ResizepicLists>,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
@@ -97,6 +98,7 @@ impl Default for GumpStudioTab {
             resizepic_search: String::new(),
             resizepic_list: Vec::new(),
             resizepic_scan_pos: 0,
+            resizepic_lists: None,
             text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
@@ -870,16 +872,33 @@ impl GumpStudioTab {
         }
     }
 
+    /// Built-in manual list plus the user's own `gumpstudio_resizepics.txt` (same format).
+    fn resizepic_lists() -> ResizepicLists {
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
+        let user = std::path::PathBuf::from(home).join(".config/uofiddler/gumpstudio_resizepics.txt");
+        let extra = std::fs::read_to_string(user).map(|t| ResizepicLists::parse(&t)).unwrap_or_default();
+        ResizepicLists::builtin().merged(extra)
+    }
+
     /// Browser of the resizepic frames found in the client gumps; clicking one sets it on the selected background.
     fn resizepic_window(&mut self, ctx: &egui::Context, d: &GumpStudioData) {
         const MAX_GUMP_ID: u32 = 0xFFFF;
+        if self.resizepic_lists.is_none() {
+            self.resizepic_lists = Some(Self::resizepic_lists());
+        }
+        let lists = self.resizepic_lists.clone().unwrap_or_default();
         if let Some(gi) = d.gump_index {
             let start = std::time::Instant::now();
             let mut steps = 0u32;
             while self.resizepic_scan_pos + 8 <= MAX_GUMP_ID {
                 let id = self.resizepic_scan_pos;
+                if let Some(r) = lists.invalid_range(id) {
+                    self.resizepic_scan_pos = *r.end() + 1; // skip the whole curated range
+                    continue;
+                }
                 let found = is_resizepic_at(
                     id,
+                    &lists,
                     |k| gi.gump_size(k as usize),
                     |k| {
                         let parts: Vec<GumpBitmap> = (0..9).filter_map(|p| decode_gump_id(gi, k + p)).collect();
@@ -923,6 +942,7 @@ impl GumpStudioTab {
                 ui.label(t!("gs.resizepic.count", n = count));
             }
             ui.label(t!("gs.resizepic.tip"));
+            ui.label(t!("gs.resizepic.manual"));
             ui.separator();
             let q = self.resizepic_search.trim().to_string();
             let shown: Vec<u32> = self.resizepic_list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
