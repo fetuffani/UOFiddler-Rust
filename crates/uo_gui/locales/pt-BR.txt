@@ -70,6 +70,27 @@ gs.resizepic.loading = Lendo gumps do cliente... ({pct}% · {n} encontrados)
 gs.resizepic.count = {n} candidatos encontrados nos gumps do cliente (lista automática: pode incluir imagens que não são molduras)
 gs.resizepic.tip = Clique em uma moldura para usá-la no fundo selecionado
 
+gs.picker.browse = Procurar...
+gs.picker.browse_gump = Procurar gumps...
+gs.picker.browse_tiled = Procurar gumps repetidos...
+gs.picker.browse_item = Procurar itens...
+gs.picker.browse_button = Procurar pares de botão...
+gs.picker.browse_checkbox = Procurar pares de checkbox...
+gs.picker.browse_radio = Procurar pares de radio...
+gs.picker.search_item = Buscar por id, hex (0x...) ou nome:
+gs.picker.count = {n} candidatos encontrados
+gs.picker.gump.title = Selecionar Gump
+gs.picker.gump.tip = Clique em um gump para usar o seu ID no campo selecionado
+gs.picker.tiled.title = Candidatos a Gump Repetido
+gs.picker.tiled.tip = Clique em uma prévia repetida para usá-la no elemento selecionado
+gs.picker.item.title = Selecionar Item (Art)
+gs.picker.item.tip = Clique em um item para usá-lo no elemento selecionado
+gs.picker.button.title = Candidatos a Botão (normal → pressionado)
+gs.picker.button.tip = Clique em um par para preencher o gump normal e o pressionado
+gs.picker.check.title = Candidatos a Checkbox (desmarcado → marcado)
+gs.picker.radio.title = Candidatos a Radio (desmarcado → marcado)
+gs.picker.switch.tip = Clique em um par para preencher o gump desmarcado e o marcado
+
 gs.fav.title = Favoritos
 gs.fav.name = Nome:
 gs.fav.save_selected = Salvar elemento selecionado

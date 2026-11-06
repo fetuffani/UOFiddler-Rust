@@ -70,6 +70,27 @@ gs.resizepic.loading = Scanning client gumps... ({pct}% · {n} found)
 gs.resizepic.count = {n} candidates found in the client gumps (automatic list: it may include pictures that are not frames)
 gs.resizepic.tip = Click a frame to use it on the selected background
 
+gs.picker.browse = Browse...
+gs.picker.browse_gump = Browse gumps...
+gs.picker.browse_tiled = Browse tiled gumps...
+gs.picker.browse_item = Browse items...
+gs.picker.browse_button = Browse button pairs...
+gs.picker.browse_checkbox = Browse checkbox pairs...
+gs.picker.browse_radio = Browse radio pairs...
+gs.picker.search_item = Search by id, hex (0x...) or name:
+gs.picker.count = {n} candidates found
+gs.picker.gump.title = Select Gump
+gs.picker.gump.tip = Click a gump to assign its ID to the selected field
+gs.picker.tiled.title = Tiled Gump Candidates
+gs.picker.tiled.tip = Click a tiled preview to use it on the selected tiled image
+gs.picker.item.title = Select Item (Art)
+gs.picker.item.tip = Click an item to use it on the selected item element
+gs.picker.button.title = Button Candidates (normal → pressed)
+gs.picker.button.tip = Click a pair to set both normal and pressed gump IDs
+gs.picker.check.title = Checkbox Candidates (unchecked → checked)
+gs.picker.radio.title = Radio Candidates (unchecked → checked)
+gs.picker.switch.tip = Click a pair to set both unchecked and checked gump IDs
+
 gs.fav.title = Favorites
 gs.fav.name = Name:
 gs.fav.save_selected = Save selected element
