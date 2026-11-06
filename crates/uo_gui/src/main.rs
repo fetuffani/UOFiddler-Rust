@@ -665,7 +665,15 @@ impl Default for UoFiddlerApp {
 
         let mut app = Self {
             file_manager: fm,
-            active_tab: UoTab::Items,
+            // UOFIDDLER_START_TAB=<tab name> selects the initial tab (used for automated screenshots)
+            active_tab: std::env::var("UOFIDDLER_START_TAB")
+                .ok()
+                .and_then(|n| {
+                    UoTab::ALL.iter().copied().find(|t| {
+                        format!("{:?}", t).eq_ignore_ascii_case(n.trim())
+                    })
+                })
+                .unwrap_or(UoTab::Items),
             active_category: Some(TabCategory::Art),
             preview_checkerboard: false,
             item_jump_input: String::new(),

@@ -19,7 +19,7 @@ struct Entry {
 
 enum Content {
     None,
-    Text { text: String, rows: Vec<Vec<String>>, truncated: bool },
+    Text { text: String, rows: Vec<Vec<String>> },
     Iff(IffText),
     Uop { file: UopFile },
     Image { texture: egui::TextureHandle, w: u32, h: u32, note: String },
@@ -160,6 +160,20 @@ impl FilesTab {
                 }
                 None => Content::Hex,
             },
+            _ if lower.starts_with("facet") && lower.ends_with(".mul") => {
+                match std::fs::read(&path).ok().and_then(|d| decode_facet(&d)) {
+                    Some(m) => {
+                        let img = egui::ColorImage::from_rgba_unmultiplied([m.width as usize, m.height as usize], &m.rgba);
+                        Content::Image {
+                            texture: ctx.load_texture("facet_img", img, egui::TextureOptions::LINEAR),
+                            w: m.width,
+                            h: m.height,
+                            note: "Mapa da facet (linhas: u32 tamanho + registros run:u8/cor:u16 em 5:5:5)".into(),
+                        }
+                    }
+                    None => Content::Hex,
+                }
+            }
             ClientFileKind::Text | ClientFileKind::Def | ClientFileKind::Other | ClientFileKind::Binary
                 if size <= 4 << 20 =>
             {
@@ -167,7 +181,7 @@ impl FilesTab {
                     Ok(d) if looks_like_text(&d) => {
                         let text = decode_text(&d);
                         let rows = parse_table(&text);
-                        Content::Text { text, rows, truncated: false }
+                        Content::Text { text, rows }
                     }
                     Ok(_) => Content::Hex,
                     Err(e) => Content::Error(e.to_string()),
@@ -183,6 +197,12 @@ impl FilesTab {
     pub fn show(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, fm: &FileManager) -> Option<UoTab> {
         if self.loaded_dir != fm.uo_dir || self.entries.is_empty() {
             self.refresh(fm);
+            // UOFIDDLER_OPEN=<file name> opens a file on startup (used for automated screenshots)
+            if let Ok(n) = std::env::var("UOFIDDLER_OPEN") {
+                if let Some(i) = self.entries.iter().position(|e| e.name.eq_ignore_ascii_case(n.trim())) {
+                    self.open(i, ctx);
+                }
+            }
         }
         let mut goto = None;
         let mut to_open: Option<usize> = None;
