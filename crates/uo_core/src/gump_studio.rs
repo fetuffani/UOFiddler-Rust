@@ -539,9 +539,10 @@ impl Favorites {
     }
 }
 
-/// Gump ranges that pass the structural rules but are known not to be frames (curated by the
-/// project owner): 2240..=2294 are the spellbook icon pages.
-pub const KNOWN_NON_FRAMES: [std::ops::RangeInclusive<u32>; 1] = [2240..=2294];
+/// Start ids (inclusive ranges) that pass the structural rules but are known not to be frames,
+/// curated by the project owner: the spellbook icon pages 2240..=2302 and the single ids
+/// 1423, 1500, 1509, 1653.
+pub const KNOWN_NON_FRAMES: [std::ops::RangeInclusive<u32>; 5] = [1423..=1423, 1500..=1500, 1509..=1509, 1653..=1653, 2240..=2302];
 
 /// Ids that start a resizepic: nine consecutive gumps `id..id + 8` in the order
 /// corner, edge, corner / edge, centre, edge / corner, edge, corner where
@@ -555,26 +556,31 @@ pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>,
     let mut out = Vec::new();
     let mut id = 0;
     while id + 8 <= max_id {
-        let sizes: Option<Vec<(u32, u32)>> = (0..9).map(|k| size_of(id + k)).collect();
-        if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
-            id += 1;
+        if let Some(r) = KNOWN_NON_FRAMES.iter().find(|r| r.contains(&id)) {
+            id = *r.end() + 1; // skip the whole curated range
             continue;
         }
-        if let Some(s) = sizes {
-            let (tl, t, tr, l, c, r, bl, b, br) = (s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]);
-            let corners_equal = tl == tr && tl == bl && tl == br;
-            let opposite_edges_equal = t == b && l == r;
-            let edges_fit = t.1 == tl.1 && l.0 == tl.0;
-            let small = s.iter().all(|&(w, h)| w > 0 && h > 0 && w <= 512 && h <= 512);
-            if corners_equal && opposite_edges_equal && edges_fit && small && c.0 > 0 && seamless(id) {
-                out.push(id);
-                id += 9; // the pieces of one resizepic never start another
-                continue;
-            }
+        if is_resizepic_start(id, &size_of, &seamless) {
+            out.push(id);
+            id += 9; // the pieces of one resizepic never start another
+        } else {
+            id += 1;
         }
-        id += 1;
     }
     out
+}
+
+/// The rules of `find_resizepics` for one id (the curated exclusions are applied by the caller).
+pub fn is_resizepic_start(id: u32, size_of: &impl Fn(u32) -> Option<(u32, u32)>, seamless: &impl Fn(u32) -> bool) -> bool {
+    let Some(s) = (0..9).map(|k| size_of(id + k)).collect::<Option<Vec<(u32, u32)>>>() else {
+        return false;
+    };
+    let (tl, t, tr, l, c, r, bl, b, br) = (s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]);
+    let corners_equal = tl == tr && tl == bl && tl == br;
+    let opposite_edges_equal = t == b && l == r;
+    let edges_fit = t.1 == tl.1 && l.0 == tl.0;
+    let small = s.iter().all(|&(w, h)| w > 0 && h > 0 && w <= 512 && h <= 512);
+    corners_equal && opposite_edges_equal && edges_fit && small && c.0 > 0 && seamless(id)
 }
 
 /// True when the nine pieces of a frame repeat without a visible seam: the first and last column
@@ -793,9 +799,11 @@ mod tests {
         };
         let seamless = |id: u32| id == 100;
         assert_eq!(find_resizepics(300, size_of, seamless), vec![100]);
-        // a curated non-frame range is skipped even when the structure fits
-        let in_range = |id: u32| -> Option<(u32, u32)> { (2240..2249).contains(&id).then(|| frame[(id - 2240) as usize]) };
+        // a curated non-frame range is skipped even when the structure fits, including the phase-shifted starts after it
+        let in_range = |id: u32| -> Option<(u32, u32)> { (2240..2262).contains(&id).then(|| frame[((id - 2240) % 9) as usize]) };
         assert!(find_resizepics(3000, in_range, |_| true).is_empty());
+        let single = |id: u32| -> Option<(u32, u32)> { (1423..1432).contains(&id).then(|| frame[(id - 1423) as usize]) };
+        assert!(find_resizepics(2000, single, |_| true).is_empty(), "1423 is curated out");
         // corners of different sizes are never a frame
         let bad = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 302 { (5, 6) } else { frame[(id - 300) as usize] }) };
         assert!(find_resizepics(400, bad, |_| true).is_empty());
