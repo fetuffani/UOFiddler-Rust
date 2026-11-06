@@ -15,6 +15,8 @@ struct Entry {
     enhanced: bool,
     size: u64,
     kind: ClientFileKind,
+    /// language suffix of localized files (`Cliloc.deu` -> "deu", `Tooltips.fra` -> "fra")
+    lang: Option<String>,
 }
 
 enum Content {
@@ -32,6 +34,7 @@ pub struct FilesTab {
     loaded_dir: Option<PathBuf>,
     search: String,
     kind_filter: Option<ClientFileKind>,
+    lang_filter: Option<String>,
     selected: Option<usize>,
     content: Content,
     table_mode: bool,
@@ -54,6 +57,7 @@ impl Default for FilesTab {
             loaded_dir: None,
             search: String::new(),
             kind_filter: None,
+            lang_filter: None,
             selected: None,
             content: Content::None,
             table_mode: true,
@@ -119,7 +123,15 @@ impl FilesTab {
             let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
             let head = read_range(&path, 0, 8);
             let kind = classify_file(&name, Some(&head));
-            self.entries.push(Entry { name, path, enhanced, size, kind });
+            let lang = match kind {
+                ClientFileKind::Iff | ClientFileKind::Cliloc => {
+                    name.rsplit_once('.')
+                        .map(|(_, e)| e.to_lowercase())
+                        .filter(|e| LANGUAGES.iter().any(|(k, _)| k == e))
+                }
+                _ => None,
+            };
+            self.entries.push(Entry { name, path, enhanced, size, kind, lang });
         }
         self.loaded_dir = fm.uo_dir.clone();
         self.selected = None;
@@ -231,6 +243,25 @@ impl FilesTab {
                     }
                 }
             });
+            // language filter for localized files (Cliloc.*, Tooltips.*, Intloc*.* ...)
+            let langs = sort_languages(self.entries.iter().filter_map(|e| e.lang.clone()).collect());
+            if !langs.is_empty() {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Idioma:");
+                    if ui.selectable_label(self.lang_filter.is_none(), "Todos").clicked() {
+                        self.lang_filter = None;
+                    }
+                    for l in &langs {
+                        if ui
+                            .selectable_label(self.lang_filter.as_deref() == Some(l.as_str()), l.as_str())
+                            .on_hover_text(language_name(l))
+                            .clicked()
+                        {
+                            self.lang_filter = Some(l.clone());
+                        }
+                    }
+                });
+            }
             ui.separator();
             let q = self.search.to_lowercase();
             let visible: Vec<usize> = self
@@ -239,6 +270,7 @@ impl FilesTab {
                 .enumerate()
                 .filter(|(_, e)| {
                     (self.kind_filter.is_none() || self.kind_filter == Some(e.kind))
+                        && (self.lang_filter.is_none() || e.lang == self.lang_filter)
                         && (q.is_empty() || e.name.to_lowercase().contains(&q))
                 })
                 .map(|(i, _)| i)
