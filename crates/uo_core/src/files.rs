@@ -40,6 +40,8 @@ pub fn sort_languages(mut codes: Vec<String>) -> Vec<String> {
 pub struct FileManager {
     /// language used for localized files (suffix, e.g. "enu")
     pub language: String,
+    /// interface language (None = detect from the system on first run)
+    pub ui_language: Option<String>,
     pub uo_dir: Option<PathBuf>,
     pub uo_ec_dir: Option<PathBuf>,
     pub high_seas: bool,
@@ -63,6 +65,7 @@ impl FileManager {
     pub fn new() -> Self {
         let mut fm = Self {
             language: "enu".to_string(),
+            ui_language: None,
             uo_dir: None,
             uo_ec_dir: None,
             high_seas: true,
@@ -237,6 +240,9 @@ impl FileManager {
                         if let Some(lang) = val.get("language").and_then(|v| v.as_str()) {
                             self.language = lang.to_lowercase();
                         }
+                        if let Some(lang) = val.get("ui_language").and_then(|v| v.as_str()) {
+                            self.ui_language = Some(lang.to_string());
+                        }
                         return;
                     }
                 }
@@ -255,6 +261,7 @@ impl FileManager {
             "uo_ec_dir": self.uo_ec_dir.as_ref().map(|p| p.display().to_string()),
             "high_seas": self.high_seas,
             "language": self.language,
+            "ui_language": self.ui_language,
         });
 
         if let Ok(str_val) = serde_json::to_string_pretty(&val) {
