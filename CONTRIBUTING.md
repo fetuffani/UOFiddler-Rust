@@ -23,6 +23,18 @@ Todo texto que o usuário pode ver deve passar pelo sistema de localização (ac
 
 Acrescentar ou alterar texto visível sem localizá-lo é motivo para recusar o PR. Textos novos devem vir com a chave de tradução e ao menos o texto padrão (inglês); os demais idiomas seguem a regra de fallback do sistema de localização.
 
+### How to localize / Como localizar
+
+- Use `t!("key")` (or `t!("key", n = 3)` for `{n}` parameters) from `crates/uo_gui/src/i18n.rs`; never a string literal in the UI code.
+- Add the key to **every** file in `crates/uo_gui/locales/` (`en.txt` is the default and the fallback). The tests fail if a language has missing or extra keys, or different `{parameters}`.
+- To add a language: create `locales/<code>.txt` with all the keys and list it in `LANGUAGES` in `i18n.rs`.
+- The test `hardcoded_ui_text_never_grows` counts the legacy hard-coded texts per file (`crates/uo_gui/i18n_baseline.txt`) and fails when one grows. After migrating texts, lower the counts with `UPDATE_I18N_BASELINE=1 cargo test -p uo_gui hardcoded`.
+
+- Use `t!("chave")` (ou `t!("chave", n = 3)` para parâmetros `{n}`) de `crates/uo_gui/src/i18n.rs`; nunca uma string literal no código da interface.
+- Acrescente a chave em **todos** os arquivos de `crates/uo_gui/locales/` (`en.txt` é o padrão e o fallback). Os testes falham se um idioma tiver chaves faltando ou sobrando, ou `{parâmetros}` diferentes.
+- Para adicionar um idioma: crie `locales/<código>.txt` com todas as chaves e liste em `LANGUAGES` no `i18n.rs`.
+- O teste `hardcoded_ui_text_never_grows` conta os textos fixos legados por arquivo (`crates/uo_gui/i18n_baseline.txt`) e falha se algum crescer. Depois de migrar textos, reduza os números com `UPDATE_I18N_BASELINE=1 cargo test -p uo_gui hardcoded`.
+
 ### Other criteria / Outros critérios
 
 More criteria can be added to this list. / Novos critérios podem ser acrescentados a esta lista.
