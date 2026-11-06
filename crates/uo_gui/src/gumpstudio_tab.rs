@@ -880,10 +880,11 @@ impl GumpStudioTab {
             let parts: Vec<GumpBitmap> = (0..9).filter_map(|k| decode_gump_id(gi, id + k)).collect();
             frame_tiles_seamlessly(&parts)
         };
+        let lists = Self::resizepic_lists();
         let (mut next, mut found) = self.resizepic_scan.take().unwrap_or((0, Vec::new()));
         let start = std::time::Instant::now();
         while next + 8 <= 0xFFFF && start.elapsed() < std::time::Duration::from_millis(8) {
-            if let Some(r) = KNOWN_NON_FRAMES.iter().find(|r| r.contains(&next)) {
+            if let Some(r) = lists.invalid_range(next) {
                 next = *r.end() + 1;
                 continue;
             }
@@ -897,8 +898,24 @@ impl GumpStudioTab {
         if next + 8 <= 0xFFFF {
             self.resizepic_scan = Some((next, found));
         } else {
+            // the manual `valid` list is always shown when the gumps exist
+            for v in lists.valid_ids() {
+                if (0..9).all(|k| size_of(v + k).is_some()) {
+                    found.push(v);
+                }
+            }
+            found.sort_unstable();
+            found.dedup();
             self.resizepic_list = Some(found);
         }
+    }
+
+    /// Built-in manual list plus the user's own `gumpstudio_resizepics.txt` (same format).
+    fn resizepic_lists() -> ResizepicLists {
+        let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
+        let user = std::path::PathBuf::from(home).join(".config/uofiddler/gumpstudio_resizepics.txt");
+        let extra = std::fs::read_to_string(user).map(|t| ResizepicLists::parse(&t)).unwrap_or_default();
+        ResizepicLists::builtin().merged(extra)
     }
 
     /// Browser of resizepic candidates (found in the background) or of every gump; clicking one sets
@@ -939,6 +956,7 @@ impl GumpStudioTab {
             }
             ui.label(t!("gs.resizepic.count", n = list.len()));
             ui.label(t!("gs.resizepic.tip"));
+            ui.label(t!("gs.resizepic.manual"));
             ui.separator();
             let q = self.resizepic_search.trim().to_string();
             let shown: Vec<u32> = list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();

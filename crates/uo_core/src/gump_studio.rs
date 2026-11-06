@@ -539,10 +539,66 @@ impl Favorites {
     }
 }
 
-/// Start ids (inclusive ranges) that pass the structural rules but are known not to be frames,
-/// curated by the project owner: the spellbook icon pages 2240..=2302 and the single ids
-/// 1423, 1500, 1509, 1653.
-pub const KNOWN_NON_FRAMES: [std::ops::RangeInclusive<u32>; 5] = [1423..=1423, 1500..=1500, 1509..=1509, 1653..=1653, 2240..=2302];
+/// Manual lists of resizepic start ids: `valid` ids are always listed (when the gumps exist), `invalid`
+/// ids and ranges are never listed. Format of the text files: `valid 83`, `invalid 2240-2302`, `#` comments.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ResizepicLists {
+    pub valid: Vec<std::ops::RangeInclusive<u32>>,
+    pub invalid: Vec<std::ops::RangeInclusive<u32>>,
+}
+
+impl ResizepicLists {
+    /// The list shipped with the program (`data/resizepics.txt`).
+    pub fn builtin() -> Self {
+        Self::parse(include_str!("../data/resizepics.txt"))
+    }
+
+    pub fn parse(text: &str) -> Self {
+        let mut l = Self::default();
+        for line in text.lines() {
+            let line = line.split('#').next().unwrap_or("").trim();
+            let mut it = line.split_whitespace();
+            let (Some(kind), Some(range)) = (it.next(), it.next()) else { continue };
+            let (a, b) = range.split_once('-').unwrap_or((range, range));
+            let (Ok(a), Ok(b)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) else { continue };
+            let r = a.min(b)..=a.max(b);
+            match kind {
+                "valid" => l.valid.push(r),
+                "invalid" => l.invalid.push(r),
+                _ => {}
+            }
+        }
+        l
+    }
+
+    /// Adds the entries of `other` (for example the user's own file).
+    pub fn merged(mut self, other: Self) -> Self {
+        self.valid.extend(other.valid);
+        self.invalid.extend(other.invalid);
+        self
+    }
+
+    pub fn is_invalid(&self, id: u32) -> bool {
+        self.invalid.iter().any(|r| r.contains(&id))
+    }
+
+    /// The invalid range that contains `id`, to skip it whole.
+    pub fn invalid_range(&self, id: u32) -> Option<&std::ops::RangeInclusive<u32>> {
+        self.invalid.iter().find(|r| r.contains(&id))
+    }
+
+    pub fn is_valid(&self, id: u32) -> bool {
+        !self.is_invalid(id) && self.valid.iter().any(|r| r.contains(&id))
+    }
+
+    /// Every individual valid id (ranges expanded, invalid ones removed).
+    pub fn valid_ids(&self) -> Vec<u32> {
+        let mut v: Vec<u32> = self.valid.iter().flat_map(|r| r.clone()).filter(|&i| !self.is_invalid(i)).collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    }
+}
 
 /// Ids that start a resizepic: nine consecutive gumps `id..id + 8` in the order
 /// corner, edge, corner / edge, centre, edge / corner, edge, corner where
@@ -552,11 +608,11 @@ pub const KNOWN_NON_FRAMES: [std::ops::RangeInclusive<u32>; 5] = [1423..=1423, 1
 /// - no piece is larger than 512 pixels (a frame is made of small tiles),
 /// - and `seamless(id)` accepts the pixels (see `frame_tiles_seamlessly`).
 /// `size_of` returns the (width, height) of a gump, `None` when it does not exist.
-pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>, seamless: impl Fn(u32) -> bool) -> Vec<u32> {
+pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>, seamless: impl Fn(u32) -> bool, lists: &ResizepicLists) -> Vec<u32> {
     let mut out = Vec::new();
     let mut id = 0;
     while id + 8 <= max_id {
-        if let Some(r) = KNOWN_NON_FRAMES.iter().find(|r| r.contains(&id)) {
+        if let Some(r) = lists.invalid_range(id) {
             id = *r.end() + 1; // skip the whole curated range
             continue;
         }
@@ -567,6 +623,14 @@ pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>,
             id += 1;
         }
     }
+    // the manual `valid` list is always included when the nine gumps exist
+    for v in lists.valid_ids() {
+        if (0..9).all(|k| size_of(v + k).is_some()) {
+            out.push(v);
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
     out
 }
 
@@ -580,8 +644,18 @@ pub fn is_resizepic_start(id: u32, size_of: &impl Fn(u32) -> Option<(u32, u32)>,
     let opposite_edges_equal = t == b && l == r;
     let edges_fit = t.1 == tl.1 && l.0 == tl.0;
     let small = s.iter().all(|&(w, h)| w > 0 && h > 0 && w <= 512 && h <= 512);
-    corners_equal && opposite_edges_equal && edges_fit && small && c.0 > 0 && seamless(id)
+    // proportions of a frame: corners and centre are squarish, the borders are slender strips
+    let ratio = |(w, h): (u32, u32)| w.max(h) as f32 / w.min(h).max(1) as f32;
+    let proportions = ratio(tl) <= MAX_CORNER_RATIO && ratio(c) <= MAX_CENTRE_RATIO && ratio(t) >= MIN_EDGE_RATIO && ratio(l) >= MIN_EDGE_RATIO;
+    corners_equal && opposite_edges_equal && edges_fit && small && proportions && c.0 > 0 && seamless(id)
 }
+
+/// Proportion limits (longest side / shortest side) taken from the known frames: corners are square
+/// (1.0), centres at most 1.4, border strips at least 9.3. Sets whose nine pieces are all the same
+/// square size (picture pages, icons) therefore fail; such a frame can still be added to the manual list.
+pub const MAX_CORNER_RATIO: f32 = 1.6;
+pub const MAX_CENTRE_RATIO: f32 = 2.0;
+pub const MIN_EDGE_RATIO: f32 = 2.5;
 
 /// True when the nine pieces of a frame repeat without a visible seam: the first and last column
 /// (rows for the side edges) of the top/bottom edges, the side edges and the centre must match.
@@ -791,25 +865,53 @@ mod tests {
 
     #[test]
     fn finds_nine_piece_frames_by_size_order_and_seams() {
-        // gumps 100..=108 form a frame (corners 4x6, top/bottom edges 10x6, sides 4x10, centre 10x10)
-        let frame = [(4, 6), (10, 6), (4, 6), (4, 10), (10, 10), (4, 10), (4, 6), (10, 6), (4, 6)];
+        // gumps 100..=108 form a frame (square 6x6 corners, slender 30x6 / 6x30 borders, 30x30 centre)
+        let frame = [(6, 6), (30, 6), (6, 6), (6, 30), (30, 30), (6, 30), (6, 6), (30, 6), (6, 6)];
         // 200..=208: same size pattern but the pieces are cut from one picture (no seams)
         let size_of = |id: u32| -> Option<(u32, u32)> {
             if (100..109).contains(&id) { Some(frame[(id - 100) as usize]) } else if (200..209).contains(&id) { Some(frame[(id - 200) as usize]) } else if id == 50 || id == 51 { Some((8, 8)) } else { None }
         };
         let seamless = |id: u32| id == 100;
-        assert_eq!(find_resizepics(300, size_of, seamless), vec![100]);
+        let none = ResizepicLists::default();
+        assert_eq!(find_resizepics(300, size_of, seamless, &none), vec![100]);
         // a curated non-frame range is skipped even when the structure fits, including the phase-shifted starts after it
         let in_range = |id: u32| -> Option<(u32, u32)> { (2240..2262).contains(&id).then(|| frame[((id - 2240) % 9) as usize]) };
-        assert!(find_resizepics(3000, in_range, |_| true).is_empty());
+        let builtin = ResizepicLists::builtin();
+        assert!(find_resizepics(3000, in_range, |_| true, &builtin).is_empty());
         let single = |id: u32| -> Option<(u32, u32)> { (1423..1432).contains(&id).then(|| frame[(id - 1423) as usize]) };
-        assert!(find_resizepics(2000, single, |_| true).is_empty(), "1423 is curated out");
+        assert!(find_resizepics(2000, single, |_| true, &builtin).is_empty(), "1423 is curated out");
         // corners of different sizes are never a frame
-        let bad = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 302 { (5, 6) } else { frame[(id - 300) as usize] }) };
-        assert!(find_resizepics(400, bad, |_| true).is_empty());
+        let bad = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 302 { (7, 6) } else { frame[(id - 300) as usize] }) };
+        assert!(find_resizepics(400, bad, |_| true, &none).is_empty());
         // opposite edges must be equal
-        let bad2 = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 307 { (11, 6) } else { frame[(id - 300) as usize] }) };
-        assert!(find_resizepics(400, bad2, |_| true).is_empty());
+        let bad2 = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 307 { (31, 6) } else { frame[(id - 300) as usize] }) };
+        assert!(find_resizepics(400, bad2, |_| true, &none).is_empty());
+    }
+
+    #[test]
+    fn proportions_reject_square_pieces_and_the_manual_list_overrides() {
+        // pieces all 70x70 (icon pages): the borders are not slender
+        let square = |id: u32| -> Option<(u32, u32)> { (7000..7009).contains(&id).then_some((70, 70)) };
+        let none = ResizepicLists::default();
+        assert!(find_resizepics(8000, square, |_| true, &none).is_empty());
+        // a valid manual entry is listed even though the proportions fail
+        let manual = ResizepicLists::parse("valid 7000 # forced\ninvalid 1-2");
+        assert_eq!(find_resizepics(8000, square, |_| true, &manual), vec![7000]);
+        // invalid wins over valid
+        let both = ResizepicLists::parse("valid 7000\ninvalid 7000");
+        assert!(find_resizepics(8000, square, |_| true, &both).is_empty());
+        // real frame proportions (9200: corners 7x7, top 427x7, side 7x316, centre 128x128) pass
+        let real = [(7, 7), (427, 7), (7, 7), (7, 316), (128, 128), (7, 316), (7, 7), (427, 7), (7, 7)];
+        let size_of = |id: u32| (9200..9209).contains(&id).then(|| real[(id - 9200) as usize]);
+        assert_eq!(find_resizepics(9300, size_of, |_| true, &none), vec![9200]);
+    }
+
+    #[test]
+    fn resizepic_list_parsing() {
+        let l = ResizepicLists::parse("# c\nvalid 83 # x\ninvalid 10-12\nbogus 1\nvalid x\n");
+        assert_eq!(l.valid_ids(), vec![83]);
+        assert!(l.is_invalid(11) && !l.is_invalid(13));
+        assert!(ResizepicLists::builtin().is_valid(83) && ResizepicLists::builtin().is_invalid(7500));
     }
 
     #[test]

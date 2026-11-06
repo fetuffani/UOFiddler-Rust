@@ -214,3 +214,4 @@ gs.resizepic.use_id = Usar o id {id}
 gs.resizepic.prev = Anterior
 gs.resizepic.next = Próxima
 gs.resizepic.page = Página {n} de {total}
+gs.resizepic.manual = Lista manual: ~/.config/uofiddler/gumpstudio_resizepics.txt (valid <id> / invalid <id>-<id>)

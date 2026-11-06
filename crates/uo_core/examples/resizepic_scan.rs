@@ -10,7 +10,7 @@ fn main() {
         gi.is_valid(i).then(|| (((gi.entries[i].extra >> 16) & 0xFFFF) as u32, (gi.entries[i].extra & 0xFFFF) as u32))
     };
     let dec = |i: u32| { let e = gi.entries[i as usize]; decode_gump(&gi.get_data(i as usize).unwrap(), ((e.extra >> 16) & 0xFFFF) as u32, (e.extra & 0xFFFF) as u32) };
-    let found = find_resizepics(0xFFFF, size_of, |id| { let p: Vec<GumpBitmap> = (0..9).filter_map(|k| dec(id + k)).collect(); frame_tiles_seamlessly(&p) });
+    let found = find_resizepics(0xFFFF, size_of, |id| { let p: Vec<GumpBitmap> = (0..9).filter_map(|k| dec(id + k)).collect(); frame_tiles_seamlessly(&p) }, &ResizepicLists::builtin());
     println!("candidates: {}", found.len());
     for known in [83u32, 9200, 9250, 9300, 9350, 3000, 5054, 2600, 3500, 217, 229, 238, 260, 1001, 1029, 1400] {
         println!("  known {:>5}: {}", known, found.contains(&known));
