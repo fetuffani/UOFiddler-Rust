@@ -63,6 +63,8 @@ pub struct PaperdollTab {
     anim_tex: Vec<egui::TextureHandle>,
     dirty: bool,
     info: String,
+    /// equipped items that have no animation / gump in the loaded client files
+    warn: String,
     scale: f32,
     slot_tex: HashMap<(u16, u32, bool), Option<egui::TextureHandle>>,
 }
@@ -85,6 +87,7 @@ impl Default for PaperdollTab {
             anim_tex: Vec::new(),
             dirty: true,
             info: String::new(),
+            warn: String::new(),
             scale: 1.0,
             slot_tex: HashMap::new(),
         }
@@ -299,6 +302,25 @@ impl PaperdollTab {
                 )
             })
             .collect();
+        // Items whose animation or gump does not exist in the loaded files (new items on an old client)
+        let (mut no_anim, mut no_gump) = (Vec::new(), Vec::new());
+        for e in self.equipped.values() {
+            let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
+            if load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction).is_none() {
+                no_anim.push(format!("0x{:04X}", e.item_id));
+            }
+            let (g, _) = d.equip_gump.gump_for_anim(self.body.anim_body(), e.anim_id as u32, self.body.female(), |g| d.gump_index.map_or(false, |gi| gi.is_valid(g as usize)));
+            if !d.gump_index.map_or(false, |gi| gi.is_valid(g as usize)) {
+                no_gump.push(format!("0x{:04X}", e.item_id));
+            }
+        }
+        self.warn = String::new();
+        if !no_anim.is_empty() {
+            self.warn.push_str(&format!("⚠ sem animação nos arquivos carregados: {}. ", no_anim.join(", ")));
+        }
+        if !no_gump.is_empty() {
+            self.warn.push_str(&format!("⚠ sem gump de paperdoll nos arquivos carregados: {}.", no_gump.join(", ")));
+        }
         self.frame = 0;
         self.info = format!(
             "{} · corpo {} · ação {} · direção {} · {} quadros · {} itens",
@@ -360,6 +382,9 @@ impl PaperdollTab {
                 self.show_slots(ui, ctx, d);
             });
             ui.label(&self.info);
+            if !self.warn.is_empty() {
+                ui.colored_label(egui::Color32::from_rgb(230, 170, 60), &self.warn);
+            }
             ui.add(egui::Slider::new(&mut self.scale, 0.5..=2.0).text("escala"));
             ui.separator();
             ui.columns(2, |cols| {
