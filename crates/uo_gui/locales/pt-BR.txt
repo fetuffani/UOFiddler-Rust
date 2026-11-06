@@ -56,3 +56,9 @@ detect.animations = Animações (anim.mul / uop)
 detect.multis = Multis (multi.mul / uop)
 detect.gamedata = GameData 3D (GameData.uop)
 detect.tileart = TileArt 3D (tileart.uop)
+
+gs.repeat = Repetir (laço nos scripts)
+gs.repeat.tip = Repete o elemento N vezes deslocando X/Y; ids de botão/switch/entrada aumentam de 1 em 1
+gs.repeat.times = Vezes:
+gs.repeat.step_x = Passo X:
+gs.repeat.step_y = Y:

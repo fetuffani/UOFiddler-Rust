@@ -96,7 +96,7 @@ impl GumpStudioTab {
     fn sample_doc() -> GumpDoc {
         let mut d = GumpDoc::default();
         d.name = "ExampleGump".into();
-        let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind };
+        let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind, repeat: None };
         d.elements = vec![
             mk("background", ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 240),
             mk("title", ElementKind::Label { text: "Example gump".into(), hue: 52, font: 1, ascii: false }, 20, 15, 0, 0),
@@ -421,6 +421,7 @@ impl GumpStudioTab {
                     h,
                     page: self.view_page,
                     kind,
+                    repeat: None,
                 });
                 self.selected = Some(n);
             }
@@ -521,6 +522,25 @@ impl GumpStudioTab {
                 ui.label("Página:");
                 ui.add(egui::DragValue::new(&mut e.page).range(0..=50));
             });
+            // repeated element: exported as a loop in RunUO / POL / Sphere
+            let mut repeating = e.repeat.is_some();
+            if ui
+                .checkbox(&mut repeating, t!("gs.repeat"))
+                .on_hover_text(t!("gs.repeat.tip"))
+                .changed()
+            {
+                e.repeat = repeating.then_some(Repeat { count: 3, step_x: 0, step_y: 25 });
+            }
+            if let Some(r) = &mut e.repeat {
+                ui.horizontal(|ui| {
+                    ui.label(t!("gs.repeat.times"));
+                    ui.add(egui::DragValue::new(&mut r.count).range(2..=200));
+                    ui.label(t!("gs.repeat.step_x"));
+                    ui.add(egui::DragValue::new(&mut r.step_x));
+                    ui.label(t!("gs.repeat.step_y"));
+                    ui.add(egui::DragValue::new(&mut r.step_y));
+                });
+            }
             ui.separator();
             match &mut e.kind {
                 ElementKind::Background { gump_id } => {
@@ -760,6 +780,12 @@ impl GumpStudioTab {
             let pos = origin + egui::vec2(e.x as f32, e.y as f32) * z;
             let r = egui::Rect::from_min_size(pos, size * z);
             self.draw_element(&painter, ctx, d, e, r);
+            if let Some(rep) = e.repeat.filter(|r| r.count > 1) {
+                for k in 1..rep.count.min(200) as i32 {
+                    let off = egui::vec2((rep.step_x * k) as f32, (rep.step_y * k) as f32) * z;
+                    self.draw_element(&painter, ctx, d, e, r.translate(off));
+                }
+            }
 
             let resp = ui.interact(r, ui.id().with(("gs_el", i)), egui::Sense::click_and_drag());
             if resp.clicked() || resp.drag_started() {
