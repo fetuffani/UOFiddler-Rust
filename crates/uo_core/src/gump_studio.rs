@@ -24,13 +24,26 @@ pub enum ElementKind {
     Image { gump_id: u32, hue: u32 },
     Tiled { gump_id: u32 },
     Item { item_id: u32, hue: u32 },
-    Label { text: String, hue: u32 },
+    /// `font`: Unicode font number (unifont*.mul) or, with `ascii`, an ASCII font (fonts.mul).
+    /// The font is a client-side choice and does not change the exported code.
+    Label {
+        text: String,
+        hue: u32,
+        #[serde(default = "default_font")]
+        font: u8,
+        #[serde(default)]
+        ascii: bool,
+    },
     Html { text: String, cliloc: u32, background: bool, scrollbar: bool },
     Button { normal: u32, pressed: u32, action: ButtonAction, page: u32, id: i32 },
     Checkbox { off: u32, on: u32, checked: bool, id: i32 },
     Radio { off: u32, on: u32, checked: bool, id: i32 },
     TextEntry { hue: u32, text: String, id: i32 },
     Alpha,
+}
+
+fn default_font() -> u8 {
+    1
 }
 
 impl ElementKind {
@@ -59,7 +72,7 @@ impl ElementKind {
             "image" => (Self::Image { gump_id: 10, hue: 0 }, 0, 0),
             "tiled" => (Self::Tiled { gump_id: 2624 }, 100, 60),
             "item" => (Self::Item { item_id: 0x0EED, hue: 0 }, 0, 0),
-            "label" => (Self::Label { text: "Texto".into(), hue: 0 }, 0, 0),
+            "label" => (Self::Label { text: "Texto".into(), hue: 0, font: 1, ascii: false }, 0, 0),
             "html" => (Self::Html { text: "HTML".into(), cliloc: 0, background: false, scrollbar: false }, 150, 60),
             "button" => (Self::Button { normal: 247, pressed: 248, action: ButtonAction::Reply, page: 0, id: 0 }, 0, 0),
             "checkbox" => (Self::Checkbox { off: 210, on: 211, checked: false, id: 0 }, 0, 0),
@@ -203,7 +216,7 @@ pub fn export_runuo(doc: &GumpDoc) -> String {
                 ElementKind::Item { item_id, hue } => {
                     if *hue != 0 { format!("AddItem( {}, {}, 0x{:X}, {} );", e.x, e.y, item_id, hue) } else { format!("AddItem( {}, {}, 0x{:X} );", e.x, e.y, item_id) }
                 }
-                ElementKind::Label { text, hue } => format!("AddLabel( {}, {}, {}, \"{}\" );", e.x, e.y, hue, cs_escape(text)),
+                ElementKind::Label { text, hue, .. } => format!("AddLabel( {}, {}, {}, \"{}\" );", e.x, e.y, hue, cs_escape(text)),
                 ElementKind::Html { text, cliloc, background, scrollbar } => {
                     if *cliloc != 0 {
                         format!("AddHtmlLocalized( {}, {}, {}, {}, {}, {}, {} );", e.x, e.y, e.w, e.h, cliloc, b(*background), b(*scrollbar))
@@ -269,7 +282,7 @@ pub fn export_sphere(doc: &GumpDoc) -> String {
                 ElementKind::Item { item_id, hue } => {
                     if *hue != 0 { format!("tilepichue {} {} {} {}", e.x, e.y, item_id, hue) } else { format!("tilepic {} {} {}", e.x, e.y, item_id) }
                 }
-                ElementKind::Label { text, hue } => format!("text {} {} {} {}", e.x, e.y, hue, tidx(text)),
+                ElementKind::Label { text, hue, .. } => format!("text {} {} {} {}", e.x, e.y, hue, tidx(text)),
                 ElementKind::Html { text, cliloc, background, scrollbar } => {
                     if *cliloc != 0 {
                         format!("xmfhtmlgump {} {} {} {} {} {} {}", e.x, e.y, e.w, e.h, cliloc, *background as u8, *scrollbar as u8)
@@ -325,7 +338,7 @@ pub fn export_pol(doc: &GumpDoc) -> String {
                 ElementKind::Image { gump_id, .. } => format!("GFGumpPic( gump, {}, {}, {} );", e.x, e.y, gump_id),
                 ElementKind::Tiled { gump_id } => format!("GFGumpPicTiled( gump, {}, {}, {}, {}, {} );", e.x, e.y, e.w, e.h, gump_id),
                 ElementKind::Item { item_id, hue } => format!("GFTilePic( gump, {}, {}, 0x{:X}, {} );", e.x, e.y, item_id, hue),
-                ElementKind::Label { text, hue } => format!("GFTextLine( gump, {}, {}, {}, {} );", e.x, e.y, hue, q(text)),
+                ElementKind::Label { text, hue, .. } => format!("GFTextLine( gump, {}, {}, {}, {} );", e.x, e.y, hue, q(text)),
                 ElementKind::Html { text, background, scrollbar, cliloc } => {
                     if *cliloc != 0 {
                         format!("GFHTMLArea( gump, {}, {}, {}, {}, {}, {}, {} ); // cliloc {} is not supported by gumps.inc: use a plain text", e.x, e.y, e.w, e.h, q(""), *background as u8, *scrollbar as u8, cliloc)
@@ -429,7 +442,7 @@ mod tests {
         d.name = "My Gump".into();
         d.elements = vec![
             el(ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 200, 0),
-            el(ElementKind::Label { text: "He said \"hi\"".into(), hue: 52 }, 20, 20, 0, 0, 0),
+            el(ElementKind::Label { text: "He said \"hi\"".into(), hue: 52, font: 1, ascii: false }, 20, 20, 0, 0, 0),
             el(ElementKind::Button { normal: 247, pressed: 248, action: ButtonAction::Reply, page: 0, id: 0 }, 20, 160, 0, 0, 0),
             el(ElementKind::Button { normal: 4005, pressed: 4007, action: ButtonAction::Page, page: 2, id: 0 }, 60, 160, 0, 0, 1),
             el(ElementKind::Checkbox { off: 210, on: 211, checked: true, id: 0 }, 20, 60, 0, 0, 1),

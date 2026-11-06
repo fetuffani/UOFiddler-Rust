@@ -8,6 +8,8 @@ use uo_core::*;
 use crate::paperdoll_tab::decode_gump_id;
 
 pub struct GumpStudioData<'a> {
+    pub file_manager: &'a FileManager,
+    pub ascii_fonts: Option<&'a FontsManager>,
     pub gump_index: Option<&'a FileIndex>,
     pub art: Option<&'a FileIndex>,
     pub hues: Option<&'a HuesManager>,
@@ -53,6 +55,8 @@ pub struct GumpStudioTab {
     tex: HashMap<TexKey, Option<egui::TextureHandle>>,
     cliloc_cache: HashMap<u32, String>,
     drag_started: bool,
+    uni_fonts: HashMap<u8, Option<UnicodeFont>>,
+    text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
 impl Default for GumpStudioTab {
@@ -70,6 +74,8 @@ impl Default for GumpStudioTab {
             tex: HashMap::new(),
             cliloc_cache: HashMap::new(),
             drag_started: false,
+            uni_fonts: HashMap::new(),
+            text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
         t
@@ -83,12 +89,12 @@ impl GumpStudioTab {
         let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind };
         d.elements = vec![
             mk("background", ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 180),
-            mk("title", ElementKind::Label { text: "Example gump".into(), hue: 52 }, 20, 15, 0, 0),
+            mk("title", ElementKind::Label { text: "Example gump".into(), hue: 52, font: 1, ascii: false }, 20, 15, 0, 0),
             mk("name_entry", ElementKind::TextEntry { hue: 0, text: "type here".into(), id: 0 }, 20, 50, 200, 20),
             mk("opt", ElementKind::Checkbox { off: 210, on: 211, checked: true, id: 0 }, 20, 85, 0, 0),
-            mk("opt_text", ElementKind::Label { text: "Enable".into(), hue: 0 }, 50, 87, 0, 0),
+            mk("opt_text", ElementKind::Label { text: "Enable".into(), hue: 0, font: 1, ascii: false }, 50, 87, 0, 0),
             mk("ok", ElementKind::Button { normal: 247, pressed: 248, action: ButtonAction::Reply, page: 0, id: 0 }, 20, 130, 0, 0),
-            mk("ok_text", ElementKind::Label { text: "OK".into(), hue: 0 }, 55, 132, 0, 0),
+            mk("ok_text", ElementKind::Label { text: "OK".into(), hue: 0, font: 1, ascii: false }, 55, 132, 0, 0),
         ];
         d
     }
@@ -170,6 +176,43 @@ impl GumpStudioTab {
         self.upload(ctx, key, bmp)
     }
 
+    /// Text drawn with the client fonts: Unicode font `font` (unifont*.mul) or, when `ascii`, the
+    /// ASCII font `font` of fonts.mul. The hue colours the glyphs like the client does.
+    fn text_texture(&mut self, ctx: &egui::Context, d: &GumpStudioData, text: &str, font: u8, ascii: bool, hue: u32, wrap: Option<i32>) -> Option<egui::TextureHandle> {
+        let key = (ascii, font, hue, wrap.unwrap_or(-1), text.to_string());
+        if let Some(t) = self.text_tex.get(&key) {
+            return t.clone();
+        }
+        let rendered = if ascii {
+            d.ascii_fonts
+                .and_then(|f| f.ascii_fonts.get(font as usize))
+                .and_then(|f| f.as_ref())
+                .and_then(|f| f.render_text(text))
+                .map(|(w, h, mut rgba)| {
+                    if let Some(p) = Self::hue_pal(d, hue) {
+                        apply_hue_bytes(&mut rgba, &p, false);
+                    }
+                    (w, h, rgba)
+                })
+        } else {
+            let f = self.uni_fonts.entry(font).or_insert_with(|| {
+                let name = if font == 0 { "unifont.mul".to_string() } else { format!("unifont{}.mul", font) };
+                d.file_manager.get_file_path(&name).and_then(|p| UnicodeFont::from_file(p).ok())
+            });
+            let c = Self::text_color(d, hue);
+            f.as_ref().and_then(|f| f.render(text, [c.r(), c.g(), c.b(), 255], wrap))
+        };
+        let tex = rendered.map(|(w, h, rgba)| {
+            ctx.load_texture(
+                format!("gs_text_{}", self.text_tex.len()),
+                egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba),
+                egui::TextureOptions::NEAREST,
+            )
+        });
+        self.text_tex.insert(key, tex.clone());
+        tex
+    }
+
     fn cliloc_text(&mut self, d: &GumpStudioData, n: u32) -> String {
         if let Some(t) = self.cliloc_cache.get(&n) {
             return t.clone();
@@ -185,7 +228,7 @@ impl GumpStudioTab {
     fn text_color(d: &GumpStudioData, hue: u32) -> egui::Color32 {
         match Self::hue_pal(d, hue) {
             Some(p) => {
-                let c = p[28];
+                let c = p[31];
                 egui::Color32::from_rgb((c & 0xFF) as u8, ((c >> 8) & 0xFF) as u8, ((c >> 16) & 0xFF) as u8)
             }
             None => egui::Color32::from_rgb(235, 235, 235),
@@ -467,10 +510,21 @@ impl GumpStudioTab {
                     Self::gump_field(ui, "Item id:", item_id);
                     Self::gump_field(ui, "Hue:", hue);
                 }
-                ElementKind::Label { text, hue } => {
+                ElementKind::Label { text, hue, font, ascii } => {
                     ui.label("Texto:");
                     ui.text_edit_multiline(text);
                     Self::gump_field(ui, "Hue:", hue);
+                    ui.horizontal(|ui| {
+                        ui.label("Fonte:");
+                        ui.selectable_value(ascii, false, "Unicode");
+                        ui.selectable_value(ascii, true, "ASCII");
+                        let max = if *ascii { 9 } else { 12 };
+                        let mut f = (*font).min(max) as u32;
+                        ui.add(egui::DragValue::new(&mut f).range(0..=max as u32));
+                        *font = f as u8;
+                    })
+                    .response
+                    .on_hover_text("Fonte do cliente usada na pré-visualização; não altera o código exportado");
                 }
                 ElementKind::Html { text, cliloc, background, scrollbar } => {
                     Self::gump_field(ui, "Cliloc (0 = texto):", cliloc);
@@ -560,7 +614,10 @@ impl GumpStudioTab {
             ElementKind::Item { item_id, hue } => tex_size(self.item_tex(ctx, d, *item_id, *hue)),
             ElementKind::Button { normal, .. } => tex_size(self.gump_tex(ctx, d, *normal, 0)),
             ElementKind::Checkbox { off, .. } | ElementKind::Radio { off, .. } => tex_size(self.gump_tex(ctx, d, *off, 0)),
-            ElementKind::Label { text, .. } => egui::vec2((text.chars().count() as f32 * 7.0).max(14.0), 16.0),
+            ElementKind::Label { text, hue, font, ascii } => {
+                let t = self.text_texture(ctx, d, text, *font, *ascii, *hue, None);
+                t.map_or(egui::vec2((text.chars().count() as f32 * 7.0).max(14.0), 16.0), |t| t.size_vec2())
+            }
             _ => egui::vec2(24.0, 24.0),
         }
     }
@@ -661,15 +718,28 @@ impl GumpStudioTab {
                 let t = self.item_tex(ctx, d, *item_id, *hue);
                 img(p, t, r);
             }
-            ElementKind::Label { text, hue } => {
-                p.text(r.min, egui::Align2::LEFT_TOP, text, egui::FontId::proportional(14.0 * (r.height() / 16.0).max(0.5)), Self::text_color(d, *hue));
+            ElementKind::Label { text, hue, font, ascii } => {
+                let t = self.text_texture(ctx, d, text, *font, *ascii, *hue, None);
+                if t.is_some() {
+                    img(p, t, r);
+                } else {
+                    p.text(r.min, egui::Align2::LEFT_TOP, text, egui::FontId::proportional(14.0), Self::text_color(d, *hue));
+                }
             }
             ElementKind::Html { text, cliloc, background, .. } => {
                 if *background {
                     p.rect_filled(r, 0.0, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 120));
                 }
                 let t = if *cliloc != 0 { self.cliloc_text(d, *cliloc) } else { text.clone() };
-                p.text(r.min + egui::vec2(2.0, 2.0), egui::Align2::LEFT_TOP, t, egui::FontId::proportional(13.0), egui::Color32::from_rgb(230, 230, 200));
+                match self.text_texture(ctx, d, &t, 1, false, 0, Some(e.w.max(8) - 4)) {
+                    Some(tex) => {
+                        let sz = tex.size_vec2() * (r.width() / (e.w.max(1) as f32));
+                        p.with_clip_rect(r).image(tex.id(), egui::Rect::from_min_size(r.min + egui::vec2(2.0, 2.0), sz), full, egui::Color32::WHITE);
+                    }
+                    None => {
+                        p.text(r.min + egui::vec2(2.0, 2.0), egui::Align2::LEFT_TOP, t, egui::FontId::proportional(13.0), egui::Color32::from_rgb(230, 230, 200));
+                    }
+                }
                 p.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(90, 90, 70)));
             }
             ElementKind::Button { normal, .. } => {
@@ -683,7 +753,15 @@ impl GumpStudioTab {
             ElementKind::TextEntry { hue, text, .. } => {
                 p.rect_filled(r, 0.0, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 90));
                 p.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(120, 120, 130)));
-                p.text(r.min + egui::vec2(3.0, 2.0), egui::Align2::LEFT_TOP, text, egui::FontId::proportional(13.0), Self::text_color(d, *hue));
+                match self.text_texture(ctx, d, text, 1, false, *hue, None) {
+                    Some(tex) => {
+                        let z = r.width() / (e.w.max(1) as f32);
+                        p.with_clip_rect(r).image(tex.id(), egui::Rect::from_min_size(r.min + egui::vec2(3.0, 1.0), tex.size_vec2() * z), full, egui::Color32::WHITE);
+                    }
+                    None => {
+                        p.text(r.min + egui::vec2(3.0, 2.0), egui::Align2::LEFT_TOP, text, egui::FontId::proportional(13.0), Self::text_color(d, *hue));
+                    }
+                }
             }
             ElementKind::Alpha => {
                 p.rect_filled(r, 0.0, egui::Color32::from_rgba_unmultiplied(0, 0, 0, 110));
