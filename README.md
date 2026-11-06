@@ -89,6 +89,16 @@ Ready-to-run builds of every push to `master` are published on the [Releases pag
 
 Linux builds need glibc 2.30 or newer (Ubuntu 20.04+, Debian 11+, Fedora 32+ and anything newer).
 
+### Updates
+
+UOFiddler checks, in the background, whether the [latest release](https://github.com/mbnunes/UOFiddler-Rust/releases/latest) has a newer build than yours (the build number is embedded by the CI; a local `cargo build` is build 0, shown as "dev build"). If GitHub cannot be reached, nothing happens and the app opens normally.
+
+- When there is a newer build, a dialog shows the new version and the release notes with **Update now**, **Remind later** and **Ignore this version**. Nothing is downloaded or installed without your click.
+- **Update now** downloads the file for your system, checks its **SHA-256** against the release's `SHA256SUMS.txt` (a file that does not match is never installed), keeps the old executable as `<name>.old`, replaces the executable and restarts. If the new version does not start, the old one is put back. Settings are kept (they live in `~/.config/uofiddler`).
+- It updates the Windows `.exe` (from the `.zip`), the Linux `.AppImage` and the `.tar.gz` binary. For the `.deb` (system install) it only opens the release page.
+- **Options** has the toggle *Check for updates automatically at startup* (turn it off to disable the check) and the **Check for updates** button. *Ignore this version* is remembered in the same `settings.json` (`auto_update_check`, `ignored_update_build`).
+- Command line (no window): `uo_gui --version` prints the build number; `uo_gui --self-update <dir>` runs the same update code against a local folder laid out like a release (zip/tar.gz/AppImage + `SHA256SUMS.txt`). It is used by the **Updater test** workflow (GitHub: Actions > Updater test > Run workflow, manual only), which builds build 1 and build 2 on Windows and Linux, updates one into the other and checks that a tampered checksum is refused.
+
 ---
 
 ## 🛠️ Build and Run

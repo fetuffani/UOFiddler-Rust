@@ -89,6 +89,16 @@ Builds prontos de cada push na `master` são publicados na [página de Releases]
 
 Os builds de Linux precisam da glibc 2.30 ou mais nova (Ubuntu 20.04+, Debian 11+, Fedora 32+ e tudo mais recente).
 
+### Atualizações
+
+O UOFiddler verifica, em segundo plano, se a [última release](https://github.com/mbnunes/UOFiddler-Rust/releases/latest) tem um build mais novo que o seu (o número do build é embutido pelo CI; um `cargo build` local é o build 0, mostrado como "build de desenvolvimento"). Sem rede ou com o GitHub indisponível, nada acontece e o app abre normalmente.
+
+- Havendo build mais novo, um aviso mostra a versão nova e as notas da release com **Atualizar agora**, **Lembrar depois** e **Ignorar esta versão**. Nada é baixado ou instalado sem o seu clique.
+- **Atualizar agora** baixa o arquivo do seu sistema, confere o **SHA-256** com o `SHA256SUMS.txt` da release (arquivo que não confere nunca é instalado), guarda o executável antigo como `<nome>.old`, troca o executável e reinicia. Se a versão nova não abrir, a antiga é restaurada. As configurações são mantidas (ficam em `~/.config/uofiddler`).
+- Atualiza o `.exe` do Windows (do `.zip`), o `.AppImage` e o binário do `.tar.gz` no Linux. No `.deb` (instalação do sistema) só abre a página da release.
+- Em **Opções** há a caixa *Verificar atualizações automaticamente ao abrir* (desmarque para desligar a checagem) e o botão **Verificar atualizações**. *Ignorar esta versão* fica salvo no mesmo `settings.json` (`auto_update_check`, `ignored_update_build`).
+- Linha de comando (sem janela): `uo_gui --version` mostra o número do build; `uo_gui --self-update <pasta>` roda o mesmo código de atualização contra uma pasta local organizada como uma release (zip/tar.gz/AppImage + `SHA256SUMS.txt`). É usado pelo workflow **Updater test** (GitHub: Actions > Updater test > Run workflow, só manual), que compila o build 1 e o build 2 no Windows e no Linux, atualiza um no outro e confere que um checksum adulterado é recusado.
+
 ---
 
 ## 🛠️ Como Compilar e Executar
