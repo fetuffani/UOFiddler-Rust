@@ -608,7 +608,7 @@ impl GumpStudioTab {
             for i in (0..self.doc.elements.len()).rev() {
                 let e = &self.doc.elements[i];
                 ui.horizontal(|ui| {
-                    let text = format!("{}{} · {}", if e.page > 0 { format!("p{} ", e.page) } else { String::new() }, e.name, e.kind.label());
+                    let text = format!("{}{} · {}", if e.page > 0 { format!("p{} ", e.page) } else { String::new() }, e.name, crate::i18n::tr(e.kind.label_key()));
                     if ui.selectable_label(self.selected == Some(i), text).clicked() {
                         self.selected = Some(i);
                     }
@@ -687,7 +687,7 @@ impl GumpStudioTab {
         let mut preview: Option<PreviewKind> = None;
         {
             let e = &mut self.doc.elements[i];
-            ui.label(e.kind.label());
+            ui.label(crate::i18n::tr(e.kind.label_key()));
             ui.horizontal(|ui| {
                 ui.label(t!("common.name"));
                 ui.text_edit_singleline(&mut e.name);

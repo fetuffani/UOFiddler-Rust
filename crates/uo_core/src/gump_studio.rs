@@ -63,6 +63,22 @@ impl ElementKind {
             Self::Alpha => "Região alfa",
         }
     }
+    /// Locale key with the user-facing name of the element kind (the GUI translates it).
+    pub fn label_key(&self) -> &'static str {
+        match self {
+            Self::Background { .. } => "gs.kind.background",
+            Self::Image { .. } => "gs.kind.image",
+            Self::Tiled { .. } => "gs.kind.tiled",
+            Self::Item { .. } => "gs.kind.item",
+            Self::Label { .. } => "gs.kind.label",
+            Self::Html { .. } => "gs.kind.html",
+            Self::Button { .. } => "gs.kind.button",
+            Self::Checkbox { .. } => "gs.kind.checkbox",
+            Self::Radio { .. } => "gs.kind.radio",
+            Self::TextEntry { .. } => "gs.kind.textentry",
+            Self::Alpha => "gs.kind.alpha",
+        }
+    }
     /// True for elements whose size is chosen by the user (the others take the art size).
     pub fn is_sized(&self) -> bool {
         matches!(self, Self::Background { .. } | Self::Tiled { .. } | Self::Html { .. } | Self::TextEntry { .. } | Self::Alpha)
