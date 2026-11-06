@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use uo_core::*;
 
+mod files_tab;
 mod packets_tab;
 
 /// All 38 bitfield flags defined in Ultima Online TileData
@@ -73,10 +74,11 @@ pub enum UoTab {
     AnimData,
     GameData,
     Packets,
+    Files,
 }
 
 impl UoTab {
-    pub const ALL: [UoTab; 18] = [
+    pub const ALL: [UoTab; 19] = [
         UoTab::Items,
         UoTab::LandTiles,
         UoTab::Gumps,
@@ -95,6 +97,7 @@ impl UoTab {
         UoTab::AnimData,
         UoTab::GameData,
         UoTab::Packets,
+        UoTab::Files,
     ];
 
     pub fn name(&self) -> &'static str {
@@ -117,6 +120,7 @@ impl UoTab {
             UoTab::AnimData => "⏱ AnimData",
             UoTab::GameData => "🎮 GameData",
             UoTab::Packets => "📡 Comunicação",
+            UoTab::Files => "📁 Arquivos",
         }
     }
 
@@ -134,7 +138,8 @@ impl UoTab {
             | UoTab::Cliloc
             | UoTab::AnimData
             | UoTab::GameData
-            | UoTab::Packets => TabCategory::Data,
+            | UoTab::Packets
+            | UoTab::Files => TabCategory::Data,
 
             UoTab::Map
             | UoTab::Light
@@ -493,6 +498,7 @@ pub struct UoFiddlerApp {
     anim_resolver: ClassicAnimResolver,
     equip_gump: EquipGumpMap,
     packets_tab: packets_tab::PacketsTab,
+    files_tab: files_tab::FilesTab,
     uop_anim_index: UopAnimationIndex,
     tiledata: Option<TileDataManager>,
     hues: Option<HuesManager>,
@@ -689,6 +695,7 @@ impl Default for UoFiddlerApp {
             anim_resolver: ClassicAnimResolver::default(),
             equip_gump: EquipGumpMap::default(),
             packets_tab: packets_tab::PacketsTab::default(),
+            files_tab: files_tab::FilesTab::default(),
             uop_anim_index: UopAnimationIndex::new(),
             tiledata: None,
             hues: None,
@@ -2344,6 +2351,11 @@ impl eframe::App for UoFiddlerApp {
             UoTab::AnimData => self.render_animdata_tab(ui, ctx),
             UoTab::GameData => self.render_gamedata_tab(ui),
             UoTab::Packets => self.packets_tab.show(ui),
+            UoTab::Files => {
+                if let Some(tab) = self.files_tab.show(ui, ctx, &self.file_manager) {
+                    self.active_tab = tab;
+                }
+            }
         });
 
         // ------------------ 5. SETTINGS / DIRECTORY PATHS DIALOG ------------------
