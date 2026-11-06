@@ -499,7 +499,7 @@ pub struct UoFiddlerApp {
     splash_active: bool,
     splash_start: Instant,
     splash_progress: f32,
-    splash_msg: &'static str,
+    splash_msg: &'static str, // locale key
 
     // Settings dialog state
     show_settings_dialog: bool,
@@ -719,7 +719,7 @@ impl Default for UoFiddlerApp {
             splash_active: true,
             splash_start: Instant::now(),
             splash_progress: 0.0,
-            splash_msg: "Verificando diretório do Ultima Online...",
+            splash_msg: "splash.start",
             show_settings_dialog: false,
             show_about_dialog: false,
             settings_classic_input: classic_str,
@@ -846,7 +846,7 @@ impl Default for UoFiddlerApp {
             gamedata_selected_idx: 0,
             gamedata_row_search: String::new(),
             gamedata_view_raw: false,
-            status_message: "Iniciando UOFiddler...".to_string(),
+            status_message: t!("status.starting"),
         };
 
         app.refresh_valid_multis();
@@ -1278,14 +1278,14 @@ impl UoFiddlerApp {
         }
 
         let dt = t0.elapsed();
-        self.status_message = format!(
-            "Arquivos carregados em {:.2} ms ⚡ (Art: {}, TileData: {}, Gumps: {}, Cliloc: {}, Sounds: {})",
-            dt.as_secs_f64() * 1000.0,
-            self.art_index.is_some(),
-            self.tiledata.is_some(),
-            self.valid_gumps.len(),
-            self.cliloc.as_ref().map(|c| c.entries.len()).unwrap_or(0),
-            self.valid_sounds.len(),
+        self.status_message = t!(
+            "status.files_loaded",
+            ms = format!("{:.2}", dt.as_secs_f64() * 1000.0),
+            art = self.art_index.is_some(),
+            tiledata = self.tiledata.is_some(),
+            gumps = self.valid_gumps.len(),
+            cliloc = self.cliloc.as_ref().map(|c| c.entries.len()).unwrap_or(0),
+            sounds = self.valid_sounds.len(),
         );
     }
 
@@ -1475,19 +1475,16 @@ impl UoFiddlerApp {
                 let count = frames.len();
                 self.anim_frames = frames;
                 self.update_animation_texture(ctx);
-                self.status_message = format!(
-                    "Animação Body {} Action {} carregada: {} quadros em {:.2} ms ⚡",
-                    self.anim_body,
-                    self.anim_action,
-                    count,
-                    t0.elapsed().as_secs_f64() * 1000.0
+                self.status_message = t!(
+                    "status.anim_loaded",
+                    body = self.anim_body,
+                    action = self.anim_action,
+                    frames = count,
+                    ms = format!("{:.2}", t0.elapsed().as_secs_f64() * 1000.0)
                 );
             }
             None => {
-                self.status_message = format!(
-                    "Nenhum quadro encontrado para Body {} Action {}.",
-                    self.anim_body, self.anim_action
-                );
+                self.status_message = t!("status.anim_none", body = self.anim_body, action = self.anim_action);
             }
         }
     }
@@ -1509,7 +1506,7 @@ impl UoFiddlerApp {
             self.uop_multis.get(&self.multi_id).cloned()
         } else {
             let Some(multi_idx) = &self.multi_index else {
-                self.status_message = "Arquivo multi.mul não carregado.".to_string();
+                self.status_message = t!("status.multi_mul_missing");
                 self.current_multi_structure = None;
                 self.multi_texture = None;
                 return;
@@ -1522,10 +1519,8 @@ impl UoFiddlerApp {
         };
 
         let Some(structure) = structure else {
-            self.status_message = format!(
-                "Multi 0x{:04X} ({}) não possui dados.",
-                self.multi_id, self.multi_id
-            );
+            self.status_message =
+                t!("status.multi_nodata", id = format!("{:04X}", self.multi_id), dec = self.multi_id);
             self.current_multi_structure = None;
             self.multi_texture = None;
             return;
@@ -1552,19 +1547,19 @@ impl UoFiddlerApp {
                 Some(ctx.load_texture("multi_render", color_image, egui::TextureOptions::NEAREST));
             let dt = t0.elapsed();
             let source_name = if self.multi_mode_enhanced {
-                "Enhanced UOP"
+                t!("status.multi_source.uop")
             } else {
-                "Clássico"
+                t!("status.multi_source.classic")
             };
-            self.status_message = format!(
-                "Multi 0x{:04X} ({}) [{}]: {} componentes, {}x{} renderizado em {:.2} ms ⚡",
-                self.multi_id,
-                self.multi_id,
-                source_name,
-                comp_count,
-                bmp.width,
-                bmp.height,
-                dt.as_secs_f64() * 1000.0
+            self.status_message = t!(
+                "status.multi_rendered",
+                id = format!("{:04X}", self.multi_id),
+                dec = self.multi_id,
+                source = source_name,
+                components = comp_count,
+                w = bmp.width,
+                h = bmp.height,
+                ms = format!("{:.2}", dt.as_secs_f64() * 1000.0)
             );
         } else {
             self.multi_texture = None;
@@ -2146,16 +2141,16 @@ impl eframe::App for UoFiddlerApp {
             let elapsed = self.splash_start.elapsed().as_secs_f32();
             if elapsed < 0.6 {
                 self.splash_progress = elapsed / 2.0;
-                self.splash_msg = "Descobrindo arquivos do cliente UO...";
+                self.splash_msg = "splash.discover";
             } else if elapsed < 1.2 {
                 self.splash_progress = elapsed / 2.0;
-                self.splash_msg = "Mapeando FileIndex e arquivos UOP na memória...";
+                self.splash_msg = "splash.map";
             } else if elapsed < 1.8 {
                 self.splash_progress = elapsed / 2.0;
-                self.splash_msg = "Inicializando TileData, Hues e Renderizadores...";
+                self.splash_msg = "splash.init";
             } else {
                 self.splash_progress = 1.0;
-                self.splash_msg = "Pronto! Iniciando interface gráfica...";
+                self.splash_msg = "splash.ready";
                 self.reload_all_client_files();
                 self.load_item_preview(ctx);
                 self.load_land_preview(ctx);
@@ -2183,9 +2178,7 @@ impl eframe::App for UoFiddlerApp {
                                 .strong(),
                         );
                         ui.label(
-                            egui::RichText::new(
-                                "Ultima Online Client Viewer & Editor (100% Rust Nativo)",
-                            )
+                            egui::RichText::new(t!("splash.subtitle"))
                             .italics()
                             .color(egui::Color32::LIGHT_GRAY),
                         );
@@ -2198,7 +2191,7 @@ impl eframe::App for UoFiddlerApp {
 
                         ui.add_space(14.0);
                         ui.label(
-                            egui::RichText::new(self.splash_msg)
+                            egui::RichText::new(t!(self.splash_msg))
                                 .monospace()
                                 .color(egui::Color32::from_rgb(180, 200, 220)),
                         );
@@ -2206,7 +2199,7 @@ impl eframe::App for UoFiddlerApp {
                         if let Some(dir) = &self.file_manager.uo_dir {
                             ui.add_space(8.0);
                             ui.label(
-                                egui::RichText::new(format!("Pasta: {}", dir.display()))
+                                egui::RichText::new(t!("splash.folder", path = dir.display()))
                                     .size(11.0)
                                     .color(egui::Color32::GRAY),
                             );
@@ -2240,14 +2233,14 @@ impl eframe::App for UoFiddlerApp {
                     // Client Path Badges
                     if self.file_manager.uo_dir.is_some() {
                         ui.label(
-                            egui::RichText::new("● Classic 2D")
+                            egui::RichText::new(t!("top.badge.classic"))
                                 .size(11.0)
                                 .color(egui::Color32::from_rgb(52, 211, 153)),
                         );
                     }
                     if self.file_manager.uo_ec_dir.is_some() {
                         ui.label(
-                            egui::RichText::new("● Enhanced 3D")
+                            egui::RichText::new(t!("top.badge.enhanced"))
                                 .size(11.0)
                                 .color(egui::Color32::from_rgb(96, 165, 250)),
                         );
@@ -2421,13 +2414,13 @@ impl eframe::App for UoFiddlerApp {
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
-                            egui::RichText::new("UOFiddler • Rust 100% Nativo ⚡")
+                            egui::RichText::new(t!("status.footer"))
                                 .color(egui::Color32::from_rgb(129, 140, 248))
                                 .small(),
                         );
                         ui.separator();
                         ui.label(
-                            egui::RichText::new("[↑↓ / ←→] Navegar • [Scroll] Zoom • [Home/End] Início/Fim")
+                            egui::RichText::new(t!("status.keys"))
                                 .color(egui::Color32::from_rgb(148, 163, 184))
                                 .small(),
                         );
@@ -2622,19 +2615,19 @@ impl eframe::App for UoFiddlerApp {
 
         // ------------------ 6. ABOUT DIALOG ------------------
         if self.show_about_dialog {
-            egui::Window::new("About UOFiddler")
+            egui::Window::new(t!("about.title"))
                 .resizable(false)
                 .collapsible(false)
                 .min_width(450.0)
                 .show(ctx, |ui| {
-                    ui.heading("⚔ UOFiddler v1.0.0");
-                    ui.label("Reescrita completa em Rust nativo de altíssima performance para Linux e multiplataforma.");
-                    ui.label("Zero dores de cabeça com .NET, Wine ou lentidão do Python.");
+                    ui.heading(t!("about.heading"));
+                    ui.label(t!("about.line1"));
+                    ui.label(t!("about.line2"));
                     ui.add_space(8.0);
-                    ui.label("• Autor: Mauricio Nunes + Gemini");
-                    ui.label("• Renderização direta em GPU via eframe / egui.");
+                    ui.label(t!("about.author"));
+                    ui.label(t!("about.render"));
                     ui.add_space(12.0);
-                    if ui.button("Fechar").clicked() {
+                    if ui.button(t!("common.close")).clicked() {
                         self.show_about_dialog = false;
                     }
                 });
