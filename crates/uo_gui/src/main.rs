@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use uo_core::*;
 
+#[macro_use]
+mod i18n;
 mod files_tab;
 mod gumpstudio_tab;
 mod map;
@@ -118,29 +120,29 @@ impl UoTab {
         UoTab::GumpStudio,
     ];
 
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> String {
         match self {
-            UoTab::Items => "📦 Items",
-            UoTab::LandTiles => "🌱 Land Tiles",
-            UoTab::Gumps => "🖼 Gumps",
-            UoTab::Hues => "🎨 Hues",
-            UoTab::Textures => "🧱 Textures",
-            UoTab::RadarCol => "🎯 RadarCol",
-            UoTab::Animations => "🐉 Animations",
-            UoTab::Cliloc => "💬 Cliloc",
-            UoTab::Sounds => "🔊 Sounds",
-            UoTab::Map => "🗺 Map",
-            UoTab::Multis => "🏰 Multis",
-            UoTab::Light => "💡 Light",
-            UoTab::Fonts => "🔤 Fonts",
-            UoTab::Skills => "⚔ Skills",
-            UoTab::Speech => "🗣 Speech",
-            UoTab::AnimData => "⏱ AnimData",
-            UoTab::GameData => "🎮 GameData",
-            UoTab::Packets => "📡 Comunicação",
-            UoTab::Files => "📁 Arquivos",
-            UoTab::Paperdoll => "🧍 Paperdoll",
-            UoTab::GumpStudio => "🧩 GumpStudio",
+            UoTab::Items => t!("tab.items"),
+            UoTab::LandTiles => t!("tab.land_tiles"),
+            UoTab::Gumps => t!("tab.gumps"),
+            UoTab::Hues => t!("tab.hues"),
+            UoTab::Textures => t!("tab.textures"),
+            UoTab::RadarCol => t!("tab.radarcol"),
+            UoTab::Animations => t!("tab.animations"),
+            UoTab::Cliloc => t!("tab.cliloc"),
+            UoTab::Sounds => t!("tab.sounds"),
+            UoTab::Map => t!("tab.map"),
+            UoTab::Multis => t!("tab.multis"),
+            UoTab::Light => t!("tab.light"),
+            UoTab::Fonts => t!("tab.fonts"),
+            UoTab::Skills => t!("tab.skills"),
+            UoTab::Speech => t!("tab.speech"),
+            UoTab::AnimData => t!("tab.animdata"),
+            UoTab::GameData => t!("tab.gamedata"),
+            UoTab::Packets => t!("tab.packets"),
+            UoTab::Files => t!("tab.files"),
+            UoTab::Paperdoll => t!("tab.paperdoll"),
+            UoTab::GumpStudio => t!("tab.gumpstudio"),
         }
     }
 
@@ -188,11 +190,11 @@ impl TabCategory {
         TabCategory::World,
     ];
 
-    pub fn title(&self) -> &'static str {
+    pub fn title(&self) -> String {
         match self {
-            TabCategory::Art => "🎨 Arte & Gráficos",
-            TabCategory::Data => "📋 Dados & Tabelas",
-            TabCategory::World => "🗺️ Mundo & Áudio",
+            TabCategory::Art => t!("category.art"),
+            TabCategory::Data => t!("category.data"),
+            TabCategory::World => t!("category.world"),
         }
     }
 }
@@ -670,6 +672,7 @@ pub struct UoFiddlerApp {
 impl Default for UoFiddlerApp {
     fn default() -> Self {
         let fm = FileManager::new();
+        i18n::init(fm.ui_language.as_deref());
         let classic_str = fm
             .uo_dir
             .as_ref()
@@ -2260,38 +2263,38 @@ impl eframe::App for UoFiddlerApp {
                     let is_world = self.active_category == Some(TabCategory::World);
                     let is_all = self.active_category.is_none();
 
-                    if ui.selectable_label(is_art, &format!("🎨 Arte ({})", UoTab::ALL.iter().filter(|t| t.category() == TabCategory::Art).count())).clicked() {
+                    if ui.selectable_label(is_art, &t!("pill.art", n = UoTab::ALL.iter().filter(|t| t.category() == TabCategory::Art).count())).clicked() {
                         self.active_category = Some(TabCategory::Art);
                         if self.active_tab.category() != TabCategory::Art {
                             self.active_tab = UoTab::Items;
                             self.load_item_preview(ctx);
                         }
                     }
-                    if ui.selectable_label(is_data, &format!("📋 Dados ({})", UoTab::ALL.iter().filter(|t| t.category() == TabCategory::Data).count())).clicked() {
+                    if ui.selectable_label(is_data, &t!("pill.data", n = UoTab::ALL.iter().filter(|t| t.category() == TabCategory::Data).count())).clicked() {
                         self.active_category = Some(TabCategory::Data);
                         if self.active_tab.category() != TabCategory::Data {
                             self.active_tab = UoTab::Hues;
                         }
                     }
-                    if ui.selectable_label(is_world, &format!("🗺️ Mundo ({})", UoTab::ALL.iter().filter(|t| t.category() == TabCategory::World).count())).clicked() {
+                    if ui.selectable_label(is_world, &t!("pill.world", n = UoTab::ALL.iter().filter(|t| t.category() == TabCategory::World).count())).clicked() {
                         self.active_category = Some(TabCategory::World);
                         if self.active_tab.category() != TabCategory::World {
                             self.active_tab = UoTab::Map;
                         }
                     }
-                    if ui.selectable_label(is_all, &format!("★ Todas ({})", UoTab::ALL.len())).clicked() {
+                    if ui.selectable_label(is_all, &t!("pill.all", n = UoTab::ALL.len())).clicked() {
                         self.active_category = None;
                     }
 
                     // Right-side actions
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("ℹ Sobre").clicked() {
+                        if ui.button(t!("top.about")).clicked() {
                             self.show_about_dialog = true;
                         }
 
                         if ui
-                            .button("🔄 Recarregar")
-                            .on_hover_text("Recarregar todos os arquivos do cliente UO")
+                            .button(t!("top.reload"))
+                            .on_hover_text(t!("top.reload.tip"))
                             .clicked()
                         {
                             self.reload_all_client_files();
@@ -2306,12 +2309,12 @@ impl eframe::App for UoFiddlerApp {
                             self.map_last_render_size = egui::Vec2::ZERO;
                             self.map_texture = None;
                             self.render_current_multi(ctx);
-                            self.status_message = "Arquivos recarregados com sucesso.".to_string();
+                            self.status_message = t!("status.reloaded");
                         }
 
                         if ui
-                            .button("⚙ Opções / Pastas")
-                            .on_hover_text("Configurar pastas do Ultima Online")
+                            .button(t!("top.options"))
+                            .on_hover_text(t!("top.options.tip"))
                             .clicked()
                         {
                             self.show_settings_dialog = true;
@@ -2487,23 +2490,23 @@ impl eframe::App for UoFiddlerApp {
 
         // ------------------ 5. SETTINGS / DIRECTORY PATHS DIALOG ------------------
         if self.show_settings_dialog {
-            egui::Window::new("UOFiddler - Path Settings")
+            egui::Window::new(t!("settings.title"))
                 .resizable(false)
                 .collapsible(false)
                 .min_width(560.0)
                 .show(ctx, |ui| {
                     ui.group(|ui| {
                         ui.label(
-                            egui::RichText::new("Ultima Online Classic (2D) Directory").strong(),
+                            egui::RichText::new(t!("settings.classic")).strong(),
                         );
                         ui.horizontal(|ui| {
                             ui.text_edit_singleline(&mut self.settings_classic_input);
-                            if ui.button("Browse...").clicked() {
+                            if ui.button(t!("settings.browse")).clicked() {
                                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
                                     self.settings_classic_input = path.display().to_string();
                                 }
                             }
-                            if ui.button("Auto-Detect").clicked() {
+                            if ui.button(t!("settings.autodetect")).clicked() {
                                 if let Some(p) = FileManager::auto_detect_uo_dir() {
                                     self.settings_classic_input = p.display().to_string();
                                 }
@@ -2514,16 +2517,16 @@ impl eframe::App for UoFiddlerApp {
                     ui.add_space(8.0);
                     ui.group(|ui| {
                         ui.label(
-                            egui::RichText::new("Ultima Online Enhanced (3D) Directory").strong(),
+                            egui::RichText::new(t!("settings.enhanced")).strong(),
                         );
                         ui.horizontal(|ui| {
                             ui.text_edit_singleline(&mut self.settings_ec_input);
-                            if ui.button("Browse...").clicked() {
+                            if ui.button(t!("settings.browse")).clicked() {
                                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
                                     self.settings_ec_input = path.display().to_string();
                                 }
                             }
-                            if ui.button("Auto-Detect").clicked() {
+                            if ui.button(t!("settings.autodetect")).clicked() {
                                 if let Some(p) = FileManager::auto_detect_ec_dir() {
                                     self.settings_ec_input = p.display().to_string();
                                 }
@@ -2533,7 +2536,7 @@ impl eframe::App for UoFiddlerApp {
 
                     ui.add_space(8.0);
                     ui.group(|ui| {
-                        ui.label(egui::RichText::new("File Detection Status").strong());
+                        ui.label(egui::RichText::new(t!("settings.detection")).strong());
                         let st = self.file_manager.get_detection_status();
                         let show_status = |ui: &mut egui::Ui, name: &str, opt: &Option<PathBuf>| {
                             ui.horizontal(|ui| {
@@ -2548,31 +2551,45 @@ impl eframe::App for UoFiddlerApp {
                                     );
                                 } else {
                                     ui.label(
-                                        egui::RichText::new("✗ Not found")
+                                        egui::RichText::new(t!("settings.notfound"))
                                             .color(egui::Color32::from_rgb(239, 83, 80)),
                                     );
                                 }
                             });
                         };
-                        show_status(ui, "Classic Art (art.mul / uop)", &st.classic_art);
-                        show_status(ui, "TileData (tiledata.mul)", &st.tiledata);
-                        show_status(ui, "Gumps (gumpart.mul / uop)", &st.gumps);
-                        show_status(ui, "Animations (anim.mul / uop)", &st.animations);
-                        show_status(ui, "Multis (multi.mul / uop)", &st.multis);
-                        show_status(ui, "3D GameData (GameData.uop)", &st.ec_gamedata);
-                        show_status(ui, "3D TileArt (tileart.uop)", &st.ec_tileart);
+                        show_status(ui, &t!("detect.art"), &st.classic_art);
+                        show_status(ui, &t!("detect.tiledata"), &st.tiledata);
+                        show_status(ui, &t!("detect.gumps"), &st.gumps);
+                        show_status(ui, &t!("detect.animations"), &st.animations);
+                        show_status(ui, &t!("detect.multis"), &st.multis);
+                        show_status(ui, &t!("detect.gamedata"), &st.ec_gamedata);
+                        show_status(ui, &t!("detect.tileart"), &st.ec_tileart);
                     });
 
                     ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        ui.label(t!("settings.language"));
+                        let current = i18n::language();
+                        let shown = i18n::available().into_iter().find(|(c, _)| *c == current).map(|(_, n)| n).unwrap_or(current.clone());
+                        egui::ComboBox::from_id_salt("ui_language").selected_text(shown).show_ui(ui, |ui| {
+                            for (code, name) in i18n::available() {
+                                if ui.selectable_label(current == code, name).clicked() && i18n::set_language(code) {
+                                    self.file_manager.ui_language = Some(code.to_string());
+                                    self.file_manager.save_settings();
+                                }
+                            }
+                        });
+                    });
+                    ui.add_space(8.0);
                     ui.checkbox(
                         &mut self.settings_high_seas,
-                        "High Seas TileData & Multi format",
+                        t!("settings.highseas"),
                     );
 
                     ui.add_space(14.0);
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button("Save & Reload All").clicked() {
+                            if ui.button(t!("settings.save")).clicked() {
                                 if !self.settings_classic_input.is_empty() {
                                     self.file_manager.set_uo_dir(&self.settings_classic_input);
                                 }
@@ -2595,7 +2612,7 @@ impl eframe::App for UoFiddlerApp {
                                 self.render_current_multi(ctx);
                                 self.show_settings_dialog = false;
                             }
-                            if ui.button("Cancel").clicked() {
+                            if ui.button(t!("settings.cancel")).clicked() {
                                 self.show_settings_dialog = false;
                             }
                         });

@@ -1,0 +1,58 @@
+# Português (Brasil). Mesmas chaves do en.txt. {nome} é parâmetro; \n é quebra de linha.
+language.name = Português (Brasil)
+
+tab.items = 📦 Items
+tab.land_tiles = 🌱 Land Tiles
+tab.gumps = 🖼 Gumps
+tab.hues = 🎨 Hues
+tab.textures = 🧱 Textures
+tab.radarcol = 🎯 RadarCol
+tab.animations = 🐉 Animations
+tab.cliloc = 💬 Cliloc
+tab.sounds = 🔊 Sounds
+tab.map = 🗺 Map
+tab.multis = 🏰 Multis
+tab.light = 💡 Light
+tab.fonts = 🔤 Fonts
+tab.skills = ⚔ Skills
+tab.speech = 🗣 Speech
+tab.animdata = ⏱ AnimData
+tab.gamedata = 🎮 GameData
+tab.packets = 📡 Comunicação
+tab.files = 📁 Arquivos
+tab.paperdoll = 🧍 Paperdoll
+tab.gumpstudio = 🧩 GumpStudio
+
+category.art = 🎨 Arte & Gráficos
+category.data = 📋 Dados & Tabelas
+category.world = 🗺️ Mundo & Áudio
+pill.art = 🎨 Arte ({n})
+pill.data = 📋 Dados ({n})
+pill.world = 🗺️ Mundo ({n})
+pill.all = ★ Todas ({n})
+
+top.about = ℹ Sobre
+top.reload = 🔄 Recarregar
+top.reload.tip = Recarregar todos os arquivos do cliente UO
+top.options = ⚙ Opções / Pastas
+top.options.tip = Configurar pastas do Ultima Online
+status.reloaded = Arquivos recarregados com sucesso.
+
+settings.title = UOFiddler - Configurações
+settings.classic = Diretório do Ultima Online Classic (2D)
+settings.enhanced = Diretório do Ultima Online Enhanced (3D)
+settings.browse = Procurar...
+settings.autodetect = Detectar automaticamente
+settings.detection = Status da detecção de arquivos
+settings.notfound = ✗ Não encontrado
+settings.highseas = Formato High Seas de TileData e Multi
+settings.save = Salvar e recarregar tudo
+settings.cancel = Cancelar
+settings.language = Idioma da interface
+detect.art = Arte clássica (art.mul / uop)
+detect.tiledata = TileData (tiledata.mul)
+detect.gumps = Gumps (gumpart.mul / uop)
+detect.animations = Animações (anim.mul / uop)
+detect.multis = Multis (multi.mul / uop)
+detect.gamedata = GameData 3D (GameData.uop)
+detect.tileart = TileArt 3D (tileart.uop)
