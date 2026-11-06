@@ -10,6 +10,7 @@ use uo_core::*;
 
 mod files_tab;
 mod packets_tab;
+mod paperdoll_tab;
 
 /// All 38 bitfield flags defined in Ultima Online TileData
 pub const TILEDATA_FLAGS: [(&str, u64); 38] = [
@@ -86,10 +87,11 @@ pub enum UoTab {
     GameData,
     Packets,
     Files,
+    Paperdoll,
 }
 
 impl UoTab {
-    pub const ALL: [UoTab; 19] = [
+    pub const ALL: [UoTab; 20] = [
         UoTab::Items,
         UoTab::LandTiles,
         UoTab::Gumps,
@@ -109,6 +111,7 @@ impl UoTab {
         UoTab::GameData,
         UoTab::Packets,
         UoTab::Files,
+        UoTab::Paperdoll,
     ];
 
     pub fn name(&self) -> &'static str {
@@ -132,6 +135,7 @@ impl UoTab {
             UoTab::GameData => "🎮 GameData",
             UoTab::Packets => "📡 Comunicação",
             UoTab::Files => "📁 Arquivos",
+            UoTab::Paperdoll => "🧍 Paperdoll",
         }
     }
 
@@ -142,6 +146,7 @@ impl UoTab {
             | UoTab::Textures
             | UoTab::Gumps
             | UoTab::Animations
+            | UoTab::Paperdoll
             | UoTab::Multis => TabCategory::Art,
 
             UoTab::Hues
@@ -511,6 +516,7 @@ pub struct UoFiddlerApp {
     equip_gump: EquipGumpMap,
     packets_tab: packets_tab::PacketsTab,
     files_tab: files_tab::FilesTab,
+    paperdoll_tab: paperdoll_tab::PaperdollTab,
     uop_anim_index: UopAnimationIndex,
     tiledata: Option<TileDataManager>,
     hues: Option<HuesManager>,
@@ -725,6 +731,7 @@ impl Default for UoFiddlerApp {
             equip_gump: EquipGumpMap::default(),
             packets_tab: packets_tab::PacketsTab::default(),
             files_tab: files_tab::FilesTab::default(),
+            paperdoll_tab: paperdoll_tab::PaperdollTab::default(),
             uop_anim_index: UopAnimationIndex::new(),
             tiledata: None,
             hues: None,
@@ -2506,6 +2513,19 @@ impl eframe::App for UoFiddlerApp {
             UoTab::AnimData => self.render_animdata_tab(ui, ctx),
             UoTab::GameData => self.render_gamedata_tab(ui),
             UoTab::Packets => self.packets_tab.show(ui),
+            UoTab::Paperdoll => {
+                let data = self.tiledata.as_ref().map(|td| paperdoll_tab::PaperdollData {
+                    tiledata: td,
+                    equip_gump: &self.equip_gump,
+                    gump_index: self.gump_index.as_ref(),
+                    hues: self.hues.as_ref(),
+                    resolver: &self.anim_resolver,
+                    mul_anim: &self.anim_indices,
+                    uop_anim: &self.uop_anim_index,
+                    art: self.art_index.as_ref(),
+                });
+                self.paperdoll_tab.show(ui, ctx, data.as_ref());
+            }
             UoTab::Files => {
                 if let Some(tab) = self.files_tab.show(ui, ctx, &self.file_manager) {
                     self.active_tab = tab;
