@@ -525,19 +525,19 @@ impl GumpStudioTab {
             // repeated element: exported as a loop in RunUO / POL / Sphere
             let mut repeating = e.repeat.is_some();
             if ui
-                .checkbox(&mut repeating, "Repetir (laço nos scripts)")
-                .on_hover_text("Repete o elemento N vezes deslocando X/Y; ids de botão/switch/entrada aumentam de 1 em 1")
+                .checkbox(&mut repeating, t!("gs.repeat"))
+                .on_hover_text(t!("gs.repeat.tip"))
                 .changed()
             {
                 e.repeat = repeating.then_some(Repeat { count: 3, step_x: 0, step_y: 25 });
             }
             if let Some(r) = &mut e.repeat {
                 ui.horizontal(|ui| {
-                    ui.label("Vezes:");
+                    ui.label(t!("gs.repeat.times"));
                     ui.add(egui::DragValue::new(&mut r.count).range(2..=200));
-                    ui.label("Passo X:");
+                    ui.label(t!("gs.repeat.step_x"));
                     ui.add(egui::DragValue::new(&mut r.step_x));
-                    ui.label("Y:");
+                    ui.label(t!("gs.repeat.step_y"));
                     ui.add(egui::DragValue::new(&mut r.step_y));
                 });
             }
