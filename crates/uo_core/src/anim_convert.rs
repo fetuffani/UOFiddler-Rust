@@ -122,3 +122,39 @@ impl ClassicAnimResolver {
         (Self::base_index(file_type, body) + action * 5 + dir) as usize
     }
 }
+
+/// Loads the frames of a body/action/direction the way the viewer does: Body.def/Bodyconv.def
+/// resolved classic MUL first, then UOP, then every classic file with the legacy formulas.
+pub fn load_animation_frames(
+    resolver: &ClassicAnimResolver,
+    mul: &HashMap<u32, crate::FileIndex>,
+    uop: &crate::UopAnimationIndex,
+    body: u32,
+    action: u32,
+    direction: u8,
+) -> Option<Vec<crate::AnimationFrame>> {
+    let flip = direction > 4;
+    let r = resolver.resolve(body);
+    if let Some(data) = mul
+        .get(&r.file_type)
+        .and_then(|fi| fi.get_data(ClassicAnimResolver::index(r.file_type, r.body, action, direction)))
+    {
+        let frames = crate::decode_animation_mul(&data, flip);
+        if !frames.is_empty() {
+            return Some(frames);
+        }
+    }
+    if let Some(frames) = uop.get_animation_frames(body, action, direction) {
+        return Some(frames);
+    }
+    for ft in 1..=5u32 {
+        let idx = ClassicAnimResolver::index(ft, body, action, direction);
+        if let Some(data) = mul.get(&ft).and_then(|fi| fi.get_data(idx)) {
+            let frames = crate::decode_animation_mul(&data, flip);
+            if !frames.is_empty() {
+                return Some(frames);
+            }
+        }
+    }
+    None
+}
