@@ -672,9 +672,15 @@ pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>,
     out
 }
 
+/// True when `id` is in the shipped invalid ranges (parsed once).
+fn builtin_invalid(id: u32) -> bool {
+    static LISTS: std::sync::OnceLock<ResizepicLists> = std::sync::OnceLock::new();
+    LISTS.get_or_init(ResizepicLists::builtin).is_invalid(id)
+}
+
 /// True when `id` has tile-like dimensions suitable for a `gumppictiled` element (`8..=256` px).
 pub fn is_tiled_gump_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> bool {
-    if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+    if builtin_invalid(id) {
         return false;
     }
     size_of(id).map_or(false, |(w, h)| (8..=256).contains(&w) && (8..=256).contains(&h))
@@ -683,7 +689,7 @@ pub fn is_tiled_gump_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) ->
 /// Detects a 2-state (`id, id + 1`) or 3-state (`id, id + 2`, normal/hover/pressed) button pair
 /// starting at `id`. Returns `Some((normal_id, pressed_id, step))`.
 pub fn button_pair_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> Option<(u32, u32, u32)> {
-    if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+    if builtin_invalid(id) {
         return None;
     }
     let (w, h) = size_of(id)?;
@@ -703,7 +709,7 @@ pub fn button_pair_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> O
 /// Detects a checkbox or radio switch pair (`id, id + 1`) starting at `id`.
 /// Returns `Some((off_id, on_id, 2))`.
 pub fn switch_pair_at(id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> Option<(u32, u32, u32)> {
-    if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+    if builtin_invalid(id) {
         return None;
     }
     let (w, h) = size_of(id)?;
