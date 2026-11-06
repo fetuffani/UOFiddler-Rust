@@ -1,0 +1,19 @@
+# 0x3E - Versions (God client)
+
+Direction: server -> client. Size: 37 bytes.
+
+Purpose: God client packet; the layout is not defined by the implementations consulted.
+
+| Offset | Size | Type | Field | Description |
+|---|---|---|---|---|
+| 0 | 1 | u8 | id | 0x3E |
+| 1 | - | - | payload | Not documented. |
+
+Notes:
+
+Only the size (per packets.md and the ClassicUO table) is known.
+
+## Implementation reference
+
+- ClassicUO: `src/ClassicUO.Client/Network/PacketHandlers.cs`: `PacketsTable.cs`
+- Praxiiz UltimaLive: `UltimaLive/Network/NetworkManager.cpp` (packet names only)
