@@ -106,6 +106,22 @@ fn read_range(path: &Path, offset: u64, len: usize) -> Vec<u8> {
     buf
 }
 
+/// Localized label of a file kind (the core `label()` stays the Portuguese fallback).
+fn kind_label(k: ClientFileKind) -> String {
+    match k {
+        ClientFileKind::Text => t!("files.kind.text"),
+        ClientFileKind::Def => t!("files.kind.def"),
+        ClientFileKind::Iff => t!("files.kind.iff"),
+        ClientFileKind::Uop => t!("files.kind.uop"),
+        ClientFileKind::Mul => t!("files.kind.mul"),
+        ClientFileKind::Idx => t!("files.kind.idx"),
+        ClientFileKind::Cliloc => t!("files.kind.cliloc"),
+        ClientFileKind::Binary => t!("files.kind.binary"),
+        ClientFileKind::Executable => t!("files.kind.executable"),
+        ClientFileKind::Other => t!("files.kind.other"),
+    }
+}
+
 fn human(n: u64) -> String {
     if n >= 1 << 20 {
         format!("{:.1} MB", n as f64 / (1 << 20) as f64)
@@ -161,7 +177,7 @@ impl FilesTab {
                     resolve_uop_names(&mut u, &name);
                     Content::Uop { file: u }
                 }
-                None => Content::Error("UOP inválido".into()),
+                None => Content::Error(t!("files.err.bad_uop")),
             },
             _ if lower == "multimap.rle" => match std::fs::read(&path).ok().and_then(|d| decode_multimap(&d, true)) {
                 Some(m) => {
@@ -170,7 +186,7 @@ impl FilesTab {
                         texture: ctx.load_texture("multimap_rle", img, egui::TextureOptions::NEAREST),
                         w: m.width,
                         h: m.height,
-                        note: "Mapa de overview do cliente (RLE 1 bit: bit7 = terra, bits 0-6 = comprimento do run)".into(),
+                        note: t!("files.note.multimap"),
                     }
                 }
                 None => Content::Hex,
@@ -183,7 +199,7 @@ impl FilesTab {
                             texture: ctx.load_texture("facet_img", img, egui::TextureOptions::LINEAR),
                             w: m.width,
                             h: m.height,
-                            note: "Mapa da facet (linhas: u32 tamanho + registros run:u8/cor:u16 em 5:5:5)".into(),
+                            note: t!("files.note.facet"),
                         }
                     }
                     None => Content::Hex,
@@ -223,14 +239,14 @@ impl FilesTab {
         let mut to_open: Option<usize> = None;
 
         egui::SidePanel::left("files_left").resizable(true).default_width(330.0).show_inside(ui, |ui| {
-            ui.heading("📁 Arquivos do cliente");
-            ui.label(format!("{} arquivos", self.entries.len()));
+            ui.heading(t!("files.heading"));
+            ui.label(t!("files.count", n = self.entries.len()));
             ui.horizontal(|ui| {
                 ui.label("🔍");
                 ui.text_edit_singleline(&mut self.search);
             });
             ui.horizontal_wrapped(|ui| {
-                if ui.selectable_label(self.kind_filter.is_none(), "Todos").clicked() {
+                if ui.selectable_label(self.kind_filter.is_none(), t!("files.all")).clicked() {
                     self.kind_filter = None;
                 }
                 let mut kinds: Vec<ClientFileKind> = self.entries.iter().map(|e| e.kind).collect();
@@ -238,7 +254,7 @@ impl FilesTab {
                 kinds.dedup();
                 for k in kinds {
                     let n = self.entries.iter().filter(|e| e.kind == k).count();
-                    if ui.selectable_label(self.kind_filter == Some(k), format!("{} ({})", k.label(), n)).clicked() {
+                    if ui.selectable_label(self.kind_filter == Some(k), format!("{} ({})", kind_label(k), n)).clicked() {
                         self.kind_filter = Some(k);
                     }
                 }
@@ -247,8 +263,8 @@ impl FilesTab {
             let langs = sort_languages(self.entries.iter().filter_map(|e| e.lang.clone()).collect());
             if !langs.is_empty() {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label("Idioma:");
-                    if ui.selectable_label(self.lang_filter.is_none(), "Todos").clicked() {
+                    ui.label(t!("files.language"));
+                    if ui.selectable_label(self.lang_filter.is_none(), t!("files.all")).clicked() {
                         self.lang_filter = None;
                     }
                     for l in &langs {
@@ -279,7 +295,7 @@ impl FilesTab {
                 for vi in range {
                     let i = visible[vi];
                     let e = &self.entries[i];
-                    let label = format!("{}{}   [{}]  {}", if e.enhanced { "✨ " } else { "" }, e.name, e.kind.label(), human(e.size));
+                    let label = format!("{}{}   [{}]  {}", if e.enhanced { "✨ " } else { "" }, e.name, kind_label(e.kind), human(e.size));
                     if ui.selectable_label(self.selected == Some(i), label).clicked() {
                         to_open = Some(i);
                     }
@@ -292,8 +308,8 @@ impl FilesTab {
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let Some(sel) = self.selected else {
-                ui.heading("Selecione um arquivo à esquerda");
-                ui.label("Texto/def (tabela ou texto), localização IFF, UOP (entradas), Multimap.rle (imagem) ou hex.");
+                ui.heading(t!("files.select.heading"));
+                ui.label(t!("files.select.hint"));
                 return;
             };
             let (name, path, kind, size) = {
@@ -301,8 +317,8 @@ impl FilesTab {
                 (e.name.clone(), e.path.clone(), e.kind, e.size)
             };
             ui.heading(&name);
-            ui.label(format!("{}  |  {}  |  {}", kind.label(), human(size), path.display()));
-            if kind == ClientFileKind::Cliloc && ui.button("Abrir na aba Cliloc").clicked() {
+            ui.label(format!("{}  |  {}  |  {}", kind_label(kind), human(size), path.display()));
+            if kind == ClientFileKind::Cliloc && ui.button(t!("files.open_cliloc")).clicked() {
                 goto = Some(UoTab::Cliloc);
             }
             self.show_convert(ui, &name, &path);
@@ -325,18 +341,18 @@ impl FilesTab {
         let out = dir.join("uofiddler_converted");
         ui.horizontal(|ui| {
             if let Some(k) = as_uop {
-                if ui.button("🔄 Converter UOP → MUL/IDX").on_hover_text(format!("Saída: {}", out.display())).clicked() {
+                if ui.button(t!("files.convert.to_mul")).on_hover_text(t!("files.convert.output", path = out.display())).clicked() {
                     self.convert_msg = Some(match uop_to_mul(k, path, &out) {
-                        Ok(r) => format!("✓ {} entradas convertidas em {}", r.entries, out.display()),
+                        Ok(r) => t!("files.convert.done_mul", n = r.entries, path = out.display()),
                         Err(e) => format!("✗ {}", e),
                     });
                 }
             }
             if let Some(k) = as_mul {
-                if ui.button("🔄 Converter MUL/IDX → UOP").on_hover_text(format!("Saída: {}", out.display())).clicked() {
+                if ui.button(t!("files.convert.to_uop")).on_hover_text(t!("files.convert.output", path = out.display())).clicked() {
                     let _ = std::fs::create_dir_all(&out);
                     self.convert_msg = Some(match mul_to_uop(k, dir, &out.join(k.uop_name())) {
-                        Ok(r) => format!("✓ {} entradas gravadas em {}", r.entries, out.join(k.uop_name()).display()),
+                        Ok(r) => t!("files.convert.done_uop", n = r.entries, path = out.join(k.uop_name()).display()),
                         Err(e) => format!("✗ {}", e),
                     });
                 }
@@ -363,8 +379,8 @@ impl FilesTab {
 
     fn show_text(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.table_mode, true, "📊 Tabela");
-            ui.selectable_value(&mut self.table_mode, false, "📄 Texto");
+            ui.selectable_value(&mut self.table_mode, true, t!("files.view.table"));
+            ui.selectable_value(&mut self.table_mode, false, t!("files.view.text"));
             ui.label("🔍");
             ui.text_edit_singleline(&mut self.content_search);
         });
@@ -374,7 +390,7 @@ impl FilesTab {
             let cols = rows.iter().map(|r| r.len()).max().unwrap_or(1).clamp(1, 14);
             let shown: Vec<&Vec<String>> =
                 rows.iter().filter(|r| q.is_empty() || r.iter().any(|c| c.to_lowercase().contains(&q))).collect();
-            ui.label(format!("{} linhas", shown.len()));
+            ui.label(t!("files.rows", n = shown.len()));
             let mut tb = TableBuilder::new(ui).striped(true).max_scroll_height(f32::INFINITY);
             for _ in 0..cols - 1 {
                 tb = tb.column(Column::auto().at_least(50.0).clip(true));
@@ -407,10 +423,7 @@ impl FilesTab {
             ui.text_edit_singleline(&mut self.content_search);
         });
         let Content::Iff(t) = &self.content else { return };
-        ui.label(format!(
-            "Idioma: {}   |   Recurso: {}   |   Strings: {} (declaradas: {})",
-            t.lang, t.name, t.strings.len(), t.declared_count
-        ));
+        ui.label(t!("files.iff.info", lang = t.lang, name = t.name, n = t.strings.len(), declared = t.declared_count));
         let q = self.content_search.to_lowercase();
         let rows: Vec<(usize, &String)> =
             t.strings.iter().enumerate().filter(|(_, s)| q.is_empty() || s.to_lowercase().contains(&q)).collect();
@@ -424,7 +437,7 @@ impl FilesTab {
                     ui.strong("#");
                 });
                 h.col(|ui| {
-                    ui.strong("Texto");
+                    ui.strong(t!("files.iff.col_text"));
                 });
             })
             .body(|body| {
@@ -443,15 +456,10 @@ impl FilesTab {
     fn show_uop(&mut self, ui: &mut egui::Ui, path: &Path) {
         let Content::Uop { file } = &self.content else { return };
         let named = file.entries.iter().filter(|e| e.name.is_some()).count();
-        ui.label(format!(
-            "MYP v{}  |  {} entradas ({} com nome resolvido)",
-            file.version,
-            file.entries.len(),
-            named
-        ));
+        ui.label(t!("files.uop.info", version = file.version, n = file.entries.len(), named = named));
         ui.horizontal(|ui| {
             ui.label("🔍");
-            ui.text_edit_singleline(&mut self.uop_search).on_hover_text("nome, hash (hex) ou índice");
+            ui.text_edit_singleline(&mut self.uop_search).on_hover_text(t!("files.uop.search.tip"));
         });
         let q = self.uop_search.to_lowercase();
         let rows: Vec<usize> = file
@@ -477,7 +485,7 @@ impl FilesTab {
                     });
                 }
                 None => {
-                    ui.label("Selecione uma entrada para ver o conteúdo (texto ou hex).");
+                    ui.label(t!("files.uop.select"));
                 }
             }
         });
@@ -491,7 +499,7 @@ impl FilesTab {
             .column(Column::exact(80.0))
             .column(Column::remainder().clip(true))
             .header(20.0, |mut hd| {
-                for t in ["#", "Hash", "Comp.", "Descomp.", "Nome"] {
+                for t in ["#".to_string(), t!("files.uop.col.hash"), t!("files.uop.col.comp"), t!("files.uop.col.decomp"), t!("files.uop.col.name")] {
                     hd.col(|ui| {
                         ui.strong(t);
                     });
@@ -542,7 +550,7 @@ impl FilesTab {
     fn show_image(&mut self, ui: &mut egui::Ui) {
         let Content::Image { texture, w, h, note } = &self.content else { return };
         ui.label(format!("{}x{} px  -  {}", w, h, note));
-        ui.add(egui::Slider::new(&mut self.image_zoom, 0.1..=3.0).text("zoom"));
+        ui.add(egui::Slider::new(&mut self.image_zoom, 0.1..=3.0).text(t!("files.zoom")));
         let size = egui::vec2(*w as f32, *h as f32) * self.image_zoom;
         egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
             ui.image((texture.id(), size));
@@ -552,9 +560,9 @@ impl FilesTab {
     fn show_hex(&mut self, ui: &mut egui::Ui, path: &Path, kind: ClientFileKind) {
         let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
         let hint = match kind {
-            ClientFileKind::Mul | ClientFileKind::Idx => "Formato MUL/IDX: veja a aba específica (Items, Gumps, Maps...) para o conteúdo interpretado.",
-            ClientFileKind::Executable => "Executável/biblioteca: somente hex.",
-            _ => "Formato binário sem visualizador dedicado: exibindo hex.",
+            ClientFileKind::Mul | ClientFileKind::Idx => t!("files.hex.hint.muidx"),
+            ClientFileKind::Executable => t!("files.hex.hint.exe"),
+            _ => t!("files.hex.hint.binary"),
         };
         ui.label(hint);
         ui.horizontal(|ui| {
@@ -567,7 +575,7 @@ impl FilesTab {
             if ui.button("4 KB ▶").clicked() && self.hex_offset + 4096 < size {
                 self.hex_offset += 4096;
             }
-            ui.label(format!("offset 0x{:X} / 0x{:X}", self.hex_offset, size));
+            ui.label(t!("files.hex.offset", pos = format!("{:X}", self.hex_offset), size = format!("{:X}", size)));
         });
         let bytes = read_range(path, self.hex_offset, 4096);
         let text = hex_dump(&bytes, self.hex_offset);
