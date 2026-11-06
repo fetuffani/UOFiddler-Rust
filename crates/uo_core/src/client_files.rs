@@ -152,6 +152,8 @@ pub struct IffText {
     pub lang: String,
     pub name: String,
     pub declared_count: u32,
+    /// bytes per character of the strings: 1 (8-bit) or 2 (UTF-16LE)
+    pub width: u32,
     pub strings: Vec<String>,
 }
 
@@ -159,38 +161,50 @@ fn be32(d: &[u8], o: usize) -> Option<usize> {
     d.get(o..o + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize)
 }
 
-/// Parses the IFF "FORM/DATA/LANGINFO/TEXT" localized string container.
+fn le32(d: &[u8], o: usize) -> Option<u32> {
+    d.get(o..o + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+}
+
+/// Parses the IFF localized string container: `FORM DATA / FORM LANG / INFO + TEXT (+ optional chunks)`.
+/// Strings are 8-bit (Windows-1252) when the INFO width is 1 and UTF-16LE when it is 2.
 pub fn parse_iff_text(d: &[u8]) -> Option<IffText> {
-    if d.len() < 12 || &d[..4] != b"FORM" {
+    if d.len() < 32 || &d[..4] != b"FORM" || &d[8..12] != b"DATA" || &d[12..16] != b"FORM" {
         return None;
     }
-    let mut out = IffText::default();
-    // LANGINFO chunk: lang\0, u32, u32, name\0, u32, count(u32)
-    if let Some(p) = d.windows(8).position(|w| w == b"LANGINFO") {
-        let size = be32(d, p + 8)?;
-        let body = d.get(p + 12..p + 12 + size.min(d.len() - p - 12))?;
-        let mut parts = body.splitn(2, |&b| b == 0);
-        out.lang = String::from_utf8_lossy(parts.next()?).to_string();
-        let rest = parts.next().unwrap_or(&[]);
-        if rest.len() > 8 {
-            let after = &rest[8..];
-            let mut p2 = after.splitn(2, |&b| b == 0);
-            out.name = String::from_utf8_lossy(p2.next().unwrap_or(&[])).to_string();
-            let tail = p2.next().unwrap_or(&[]);
-            if tail.len() >= 8 {
-                out.declared_count = u32::from_le_bytes([tail[4], tail[5], tail[6], tail[7]]);
+    let mut out = IffText { width: 1, ..Default::default() };
+    let mut text: Option<&[u8]> = None;
+    // chunks start after "FORM size DATA" + "FORM size LANG"
+    let mut pos = 24usize;
+    while pos + 8 <= d.len() {
+        let id = &d[pos..pos + 4];
+        let size = be32(d, pos + 4)?;
+        let body = d.get(pos + 8..pos + 8 + size)?;
+        match id {
+            b"INFO" => {
+                let nul = body.iter().position(|&b| b == 0)?;
+                out.lang = String::from_utf8_lossy(&body[..nul]).to_string();
+                let mut o = nul + 1;
+                out.width = le32(body, o)?.clamp(1, 2);
+                o += 8; // width + flag
+                let name_len = body.get(o..)?.iter().position(|&b| b == 0)?;
+                out.name = String::from_utf8_lossy(&body[o..o + name_len]).to_string();
+                o += name_len + 1 + 4; // name NUL + constant
+                out.declared_count = le32(body, o)?;
             }
+            b"TEXT" => text = Some(body),
+            _ => {}
         }
+        pos += 8 + size + (size & 1);
     }
-    let t = d.windows(4).position(|w| w == b"TEXT")?;
-    let size = be32(d, t + 4)?;
-    let start = t + 8;
-    let end = (start + size).min(d.len());
-    let body = &d[start..end];
-    let mut strings: Vec<String> = body.split(|&b| b == 0).map(|s| decode_text(s)).collect();
-    if body.last() == Some(&0) {
-        strings.pop();
-    }
+    let body = text?;
+    let mut strings: Vec<String> = if out.width == 2 {
+        let units: Vec<u16> = body.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        units.split(|&u| u == 0).map(String::from_utf16_lossy).collect()
+    } else {
+        body.split(|&b| b == 0).map(decode_text).collect()
+    };
+    // the last terminator leaves one empty tail element
+    strings.pop();
     if out.declared_count > 0 {
         strings.truncate(out.declared_count as usize);
     }
@@ -330,6 +344,9 @@ mod tests {
         d.extend_from_slice(b"FORM\0\0\0\0DATAFORM\0\0\0\0LANGINFO");
         d.extend_from_slice(&(info.len() as u32).to_be_bytes());
         d.extend_from_slice(&info);
+        if info.len() % 2 == 1 {
+            d.push(0);
+        }
         d.extend_from_slice(b"TEXT");
         d.extend_from_slice(&(text.len() as u32).to_be_bytes());
         d.extend_from_slice(&text);
@@ -344,6 +361,40 @@ mod tests {
         assert_eq!(t.name, "intloc01");
         assert_eq!(t.declared_count, 3);
         assert_eq!(t.strings, vec!["Participants", "", "Hide My Identity"]);
+    }
+
+    #[test]
+    fn iff_utf16_strings() {
+        let mut d = iff("x", &[]);
+        // rebuild with width 2: strings "ab" and "\u{3042}" as UTF-16LE, NUL terminated by 00 00
+        let mut text = Vec::new();
+        for s in ["ab", "\u{3042}"] {
+            for u in s.encode_utf16() {
+                text.extend_from_slice(&u.to_le_bytes());
+            }
+            text.extend_from_slice(&[0, 0]);
+        }
+        let mut info = Vec::new();
+        info.extend_from_slice(b"jpn\0");
+        info.extend_from_slice(&2u32.to_le_bytes());
+        info.extend_from_slice(&0u32.to_le_bytes());
+        info.extend_from_slice(b"x\0");
+        info.extend_from_slice(&1u32.to_le_bytes());
+        info.extend_from_slice(&2u32.to_le_bytes());
+        d.clear();
+        d.extend_from_slice(b"FORM\0\0\0\0DATAFORM\0\0\0\0LANG");
+        d.extend_from_slice(b"INFO");
+        d.extend_from_slice(&(info.len() as u32).to_be_bytes());
+        d.extend_from_slice(&info);
+        if info.len() % 2 == 1 {
+            d.push(0);
+        }
+        d.extend_from_slice(b"TEXT");
+        d.extend_from_slice(&(text.len() as u32).to_be_bytes());
+        d.extend_from_slice(&text);
+        let t = parse_iff_text(&d).unwrap();
+        assert_eq!(t.width, 2);
+        assert_eq!(t.strings, vec!["ab", "\u{3042}"]);
     }
 
     #[test]

@@ -9,7 +9,7 @@ fn main() {
     fm.set_uo_dir(&dir);
     let files = fm.list_files();
     let mut kinds: BTreeMap<ClientFileKind, usize> = BTreeMap::new();
-    let (mut iff_ok, mut iff_bad, mut iff_strings) = (0, Vec::new(), 0);
+    let (mut iff_ok, mut iff_bad, mut iff_strings, mut wide) = (0, Vec::new(), 0, 0);
     for (name, path, _) in &files {
         let mut head = vec![0u8; 16];
         let n = std::fs::File::open(path).and_then(|mut f| f.read(&mut head)).unwrap_or(0);
@@ -20,7 +20,7 @@ fn main() {
             ClientFileKind::Iff => {
                 let d = std::fs::read(path).unwrap();
                 match parse_iff_text(&d) {
-                    Some(t) if t.name.len() > 0 => { iff_ok += 1; iff_strings += t.strings.len(); }
+                    Some(t) if t.name.len() > 0 => { iff_ok += 1; iff_strings += t.strings.len(); if t.strings.len() as u32 != t.declared_count { iff_bad.push(format!("{} count {} != {}", name, t.strings.len(), t.declared_count)); } if t.width == 2 { wide += 1; } }
                     Some(_) | None => iff_bad.push(name.clone()),
                 }
             }
@@ -37,5 +37,5 @@ fn main() {
     }
     println!("total files: {}", files.len());
     for (k, c) in &kinds { println!("  {:<20} {}", k.label(), c); }
-    println!("IFF parsed: {} ({} strings)  not-parsed: {:?}", iff_ok, iff_strings, iff_bad);
+    println!("IFF parsed: {} ({} strings, {} UTF-16 files)  problems: {:?}", iff_ok, iff_strings, wide, iff_bad);
 }
