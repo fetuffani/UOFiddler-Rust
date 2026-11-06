@@ -485,6 +485,7 @@ pub struct UoFiddlerApp {
     skills_index: Option<FileIndex>,
     anim_indices: HashMap<u32, FileIndex>,
     anim_resolver: ClassicAnimResolver,
+    equip_gump: EquipGumpMap,
     uop_anim_index: UopAnimationIndex,
     tiledata: Option<TileDataManager>,
     hues: Option<HuesManager>,
@@ -679,6 +680,7 @@ impl Default for UoFiddlerApp {
             skills_index: None,
             anim_indices: HashMap::new(),
             anim_resolver: ClassicAnimResolver::default(),
+            equip_gump: EquipGumpMap::default(),
             uop_anim_index: UopAnimationIndex::new(),
             tiledata: None,
             hues: None,
@@ -1090,6 +1092,11 @@ impl UoFiddlerApp {
         self.anim_resolver = ClassicAnimResolver::parse(
             read_txt(&self.file_manager, "body.def").as_deref(),
             read_txt(&self.file_manager, "bodyconv.def").as_deref(),
+        );
+
+        self.equip_gump = EquipGumpMap::parse(
+            read_txt(&self.file_manager, "equipconv.def").as_deref(),
+            read_txt(&self.file_manager, "gump.def").as_deref(),
         );
 
         self.uop_anim_index = UopAnimationIndex::new();
@@ -3629,6 +3636,23 @@ impl UoFiddlerApp {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
+            if let Some((anim, female)) = self.equip_gump.anim_for_gump(self.gump_id) {
+                let has_anim = self.is_action_defined(anim, 0)
+                    || self.uop_anim_index.is_action_defined(anim, 0)
+                    || (0..40).any(|a| self.is_mul_action_defined(anim, a));
+                ui.horizontal(|ui| {
+                    ui.label(format!("🔗 Animação de equipamento: body {} ({})", anim, if female { "♀" } else { "♂" }));
+                    if has_anim && ui.button("Abrir em Animations").clicked() {
+                        self.anim_body = anim;
+                        self.anim_action = self.get_first_defined_action(anim);
+                        self.anim_mode_enhanced = false;
+                        self.active_tab = UoTab::Animations;
+                        self.load_animation(ctx);
+                    } else if !has_anim {
+                        ui.weak("(sem animação nos arquivos)");
+                    }
+                });
+            }
             ui.horizontal(|ui| {
                 ui.heading(format!(
                     "Gump 0x{:04X} ({}) - Dimensões: {} x {} px",
@@ -4630,6 +4654,32 @@ impl UoFiddlerApp {
                 "Visualizador - Body {} | Ação {} | Dir {}",
                 self.anim_body, self.anim_action, self.anim_direction
             ));
+            // Link animation -> paperdoll gump (equipment animations map to gump 50000+/60000+)
+            {
+                let gi = self.gump_index.as_ref();
+                let exists = |g: u32| gi.map_or(false, |f| f.is_valid(g as usize));
+                let (gm, _) = self.equip_gump.gump_for_anim(400, self.anim_body, false, exists);
+                let (gf, _) = self.equip_gump.gump_for_anim(401, self.anim_body, true, exists);
+                let mut goto: Option<u32> = None;
+                ui.horizontal(|ui| {
+                    ui.label("🔗 Gump:");
+                    if exists(gm) && ui.button(format!("♂ {} (0x{:04X})", gm, gm)).clicked() {
+                        goto = Some(gm);
+                    }
+                    if gf != gm && exists(gf) && ui.button(format!("♀ {} (0x{:04X})", gf, gf)).clicked() {
+                        goto = Some(gf);
+                    }
+                    if !exists(gm) && !exists(gf) {
+                        ui.weak("nenhum gump associado a este corpo");
+                    }
+                });
+                if let Some(g) = goto {
+                    self.gump_id = g;
+                    self.gump_mode_enhanced = false;
+                    self.active_tab = UoTab::Gumps;
+                    self.load_gump(ctx);
+                }
+            }
             ui.add_space(8.0);
 
             let available = ui.available_size();

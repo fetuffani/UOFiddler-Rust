@@ -1,5 +1,6 @@
 pub mod anim_convert;
 pub mod animations;
+pub mod equip_gump;
 pub mod animdata;
 pub mod art;
 pub mod cliloc;
@@ -23,6 +24,7 @@ pub mod tiledata;
 
 pub use anim_convert::*;
 pub use animations::*;
+pub use equip_gump::*;
 pub use animdata::*;
 pub use art::*;
 pub use cliloc::*;
