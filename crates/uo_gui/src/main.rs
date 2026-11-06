@@ -484,6 +484,7 @@ pub struct UoFiddlerApp {
     sound_index: Option<FileIndex>,
     skills_index: Option<FileIndex>,
     anim_indices: HashMap<u32, FileIndex>,
+    anim_resolver: ClassicAnimResolver,
     uop_anim_index: UopAnimationIndex,
     tiledata: Option<TileDataManager>,
     hues: Option<HuesManager>,
@@ -677,6 +678,7 @@ impl Default for UoFiddlerApp {
             sound_index: None,
             skills_index: None,
             anim_indices: HashMap::new(),
+            anim_resolver: ClassicAnimResolver::default(),
             uop_anim_index: UopAnimationIndex::new(),
             tiledata: None,
             hues: None,
@@ -1082,6 +1084,14 @@ impl UoFiddlerApp {
             }
         }
 
+        let read_txt = |fm: &FileManager, n: &str| {
+            fm.get_file_path(n).and_then(|p| std::fs::read_to_string(p).ok())
+        };
+        self.anim_resolver = ClassicAnimResolver::parse(
+            read_txt(&self.file_manager, "body.def").as_deref(),
+            read_txt(&self.file_manager, "bodyconv.def").as_deref(),
+        );
+
         self.uop_anim_index = UopAnimationIndex::new();
         if let Some(uo_dir) = &self.file_manager.uo_dir {
             self.uop_anim_index.load_directory(uo_dir);
@@ -1194,6 +1204,12 @@ impl UoFiddlerApp {
     }
 
     fn is_mul_action_defined(&self, body: u32, action: u32) -> bool {
+        let r = self.anim_resolver.resolve(body);
+        if let Some(fi) = self.anim_indices.get(&r.file_type) {
+            if fi.is_valid(ClassicAnimResolver::index(r.file_type, r.body, action, 0)) {
+                return true;
+            }
+        }
         for file_type in [1u32, 2, 3, 4, 5] {
             let raw_index = Self::calculate_mul_anim_index(body, action, 0, file_type);
             if let Some(fi) = self.anim_indices.get(&file_type) {
@@ -1335,7 +1351,36 @@ impl UoFiddlerApp {
             }
         }
 
-        // 2. Try classic MUL Anim1..Anim5
+        // 2a. Classic MUL resolved through Body.def / Bodyconv.def
+        {
+            let r = self.anim_resolver.resolve(self.anim_body);
+            let raw_index =
+                ClassicAnimResolver::index(r.file_type, r.body, self.anim_action, self.anim_direction);
+            if let Some(data) = self
+                .anim_indices
+                .get(&r.file_type)
+                .and_then(|fi| fi.get_data(raw_index))
+            {
+                let frames = decode_animation_mul(&data, self.anim_direction > 4);
+                if !frames.is_empty() {
+                    let count = frames.len();
+                    self.anim_frames = frames;
+                    self.update_animation_texture(ctx);
+                    self.status_message = format!(
+                        "Animação MUL (Anim{}) Body {} -> {} Action {} carregada: {} quadros em {:.2} ms ⚡",
+                        r.file_type,
+                        self.anim_body,
+                        r.body,
+                        self.anim_action,
+                        count,
+                        t0.elapsed().as_secs_f64() * 1000.0
+                    );
+                    return;
+                }
+            }
+        }
+
+        // 2b. Fallback: try every classic MUL Anim1..Anim5 with the legacy formulas
         for file_type in [1u32, 2, 3, 4, 5] {
             let raw_index = Self::calculate_mul_anim_index(
                 self.anim_body,

@@ -1,3 +1,4 @@
+pub mod anim_convert;
 pub mod animations;
 pub mod animdata;
 pub mod art;
@@ -20,6 +21,7 @@ pub mod speech;
 pub mod textures;
 pub mod tiledata;
 
+pub use anim_convert::*;
 pub use animations::*;
 pub use animdata::*;
 pub use art::*;
