@@ -77,3 +77,8 @@ gs.fav.insert = Inserir
 gs.fav.delete = Excluir
 gs.fav.empty = Nenhum favorito ainda
 gs.fav.count = {n} elementos
+
+gs.group.hint = Ctrl+clique adiciona elementos à seleção; elementos agrupados se movem juntos
+gs.group.make = Agrupar seleção
+gs.group.dissolve = Desagrupar
+gs.group.label = Grupo (0 = nenhum):

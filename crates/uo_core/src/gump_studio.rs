@@ -107,6 +107,9 @@ pub struct GumpElement {
     pub kind: ElementKind,
     #[serde(default)]
     pub repeat: Option<Repeat>,
+    /// elements with the same non-zero group id move together in the editor (0 = no group)
+    #[serde(default)]
+    pub group: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -128,6 +131,25 @@ impl Default for GumpDoc {
 }
 
 impl GumpDoc {
+    /// Indexes that move together with element `i`: its whole group when it has one.
+    pub fn group_members(&self, i: usize) -> Vec<usize> {
+        match self.elements.get(i).map(|e| e.group).filter(|&g| g != 0) {
+            Some(g) => self.elements.iter().enumerate().filter(|(_, e)| e.group == g).map(|(k, _)| k).collect(),
+            None => vec![i],
+        }
+    }
+
+    /// Puts the given elements in a new group (the next free id); returns the id.
+    pub fn group_elements(&mut self, idx: &[usize]) -> u32 {
+        let id = self.elements.iter().map(|e| e.group).max().unwrap_or(0) + 1;
+        for &i in idx {
+            if let Some(e) = self.elements.get_mut(i) {
+                e.group = id;
+            }
+        }
+        id
+    }
+
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_default()
     }
@@ -627,7 +649,7 @@ mod tests {
     use super::*;
 
     fn el(kind: ElementKind, x: i32, y: i32, w: i32, h: i32, page: u32) -> GumpElement {
-        GumpElement { name: "el".into(), x, y, w, h, page, kind, repeat: None }
+        GumpElement { name: "el".into(), x, y, w, h, page, kind, repeat: None, group: 0 }
     }
 
     fn sample() -> GumpDoc {
@@ -643,6 +665,24 @@ mod tests {
             el(ElementKind::Item { item_id: 0xEED, hue: 0 }, 200, 20, 0, 0, 0),
         ];
         d
+    }
+
+    #[test]
+    fn groups_move_together() {
+        let mut d = GumpDoc::default();
+        d.elements = vec![
+            el(ElementKind::Alpha, 0, 0, 10, 10, 0),
+            el(ElementKind::Alpha, 5, 5, 10, 10, 0),
+            el(ElementKind::Alpha, 9, 9, 10, 10, 0),
+        ];
+        assert_eq!(d.group_members(0), vec![0], "no group: only itself");
+        let g = d.group_elements(&[0, 2]);
+        assert_eq!(g, 1);
+        assert_eq!(d.group_members(2), vec![0, 2]);
+        assert_eq!(d.group_elements(&[1]), 2, "next free group id");
+        // old files without the field still load (group = 0)
+        let old = r#"{"name":"x","x":0,"y":0,"closable":true,"movable":true,"disposable":true,"resizable":false,"elements":[{"name":"a","x":1,"y":2,"w":3,"h":4,"page":0,"kind":{"type":"Alpha"}}]}"#;
+        assert_eq!(GumpDoc::from_json(old).unwrap().elements[0].group, 0);
     }
 
     #[test]
