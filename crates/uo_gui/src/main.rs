@@ -488,6 +488,7 @@ pub struct UoFiddlerApp {
     art_index: Option<FileIndex>,
     ec_art_index: EcArtIndex,
     multi_index: Option<FileIndex>,
+    multi_record_size: usize,
     gump_index: Option<FileIndex>,
     gump_index_ec: Option<FileIndex>,
     texture_index: Option<FileIndex>,
@@ -693,6 +694,7 @@ impl Default for UoFiddlerApp {
             art_index: None,
             ec_art_index: EcArtIndex::new(),
             multi_index: None,
+            multi_record_size: 16,
             gump_index: None,
             gump_index_ec: None,
             texture_index: None,
@@ -999,6 +1001,9 @@ impl UoFiddlerApp {
             self.file_manager.get_file_path("multi.mul"),
         ) {
             self.multi_index = FileIndex::from_mul_idx(idx, mul, 0x4000).ok();
+            if let Some(mi) = &self.multi_index {
+                self.multi_record_size = detect_multi_record_size(mi);
+            }
         }
         if let Some(p) = self.file_manager.get_file_path("MultiCollection.uop") {
             self.uop_multis = load_uop_multis(p);
@@ -1490,7 +1495,7 @@ impl UoFiddlerApp {
                 return;
             };
             if let Some(data) = multi_idx.get_data(self.multi_id as usize) {
-                MultiStructure::parse(self.multi_id, &data)
+                MultiStructure::parse_sized(self.multi_id, &data, self.multi_record_size)
             } else {
                 None
             }
