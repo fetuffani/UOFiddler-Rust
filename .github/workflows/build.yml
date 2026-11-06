@@ -38,3 +38,32 @@ jobs:
             target/release/uo_gui
             target/release/uo_gui.exe
           if-no-files-found: error
+
+  # Only pushes to master (or main) publish: the artifacts above go into a GitHub release.
+  release:
+    name: Release
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package
+        run: |
+          mkdir dist
+          chmod +x artifacts/uofiddler-Linux/uo_gui
+          tar -C artifacts/uofiddler-Linux -czf dist/uofiddler-linux-x86_64.tar.gz uo_gui
+          (cd artifacts/uofiddler-Windows && zip -q ../../dist/uofiddler-windows-x86_64.zip uo_gui.exe)
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "build-${{ github.run_number }}" dist/* --target "$GITHUB_SHA" --latest \
+            --title "UOFiddler build ${{ github.run_number }}" --generate-notes
