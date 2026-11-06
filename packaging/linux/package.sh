@@ -44,6 +44,9 @@ Description: Ultima Online client file viewer and editor
 CONTROL
 dpkg-deb --build --root-owner-group "$deb" "$out/uofiddler_${version}_amd64.deb" >/dev/null
 
+# SKIP_APPIMAGE=1 stops here (local rehearsals on machines where appimagetool, x86_64-only, cannot run).
+[ -z "${SKIP_APPIMAGE:-}" ] || exit 0
+
 # AppImage: one file to download and run.
 app="$work/UOFiddler.AppDir"
 install -Dm 755 "$bin" "$app/usr/bin/uofiddler"

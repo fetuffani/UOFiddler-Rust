@@ -27,7 +27,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # UOF_BUILD is the build number the app embeds (build.rs); the Release job below names the
+      # assets <Cargo version>.<run_number>, so the two stay consistent.
       - name: Build
+        env:
+          UOF_BUILD: ${{ github.run_number }}
         run: cargo build --release --locked
 
       - name: Upload artifact
