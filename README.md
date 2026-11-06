@@ -172,8 +172,8 @@ UOFiddler-Rust/
 
 ## 📚 Documentation
 
-- [`docs/formats`](docs/formats/README.md): one document per family of client files (MUL/IDX, maps, tables, animations, UOP containers, `.def`, localization…), covering every file of a 7.x client folder.
-- [`docs/protocol`](docs/protocol/README.md): packets and gump layout commands.
+- [`docs/en/formats`](docs/en/formats/README.md): one document per family of client files (MUL/IDX, maps, tables, animations, UOP containers, `.def`, localization…), covering every file of a 7.x client folder.
+- [`docs/en/protocol`](docs/en/protocol/README.md): packets, gump layout commands and flows (login, gumps, house customization, boats). The Portuguese originals are in [`docs/formats`](docs/formats/README.md) and [`docs/protocol`](docs/protocol/README.md).
 
 ---
 

@@ -1,0 +1,17 @@
+# 0xCA - UTrip Time
+Direction: server -> client. Size: 6 bytes.
+Purpose: Latency measurement response (the "U" variant).
+
+Conventions: offsets counted from the first byte of the packet (the id); integers of more than one byte are big-endian; u8/u16/u32 are unsigned, i8/i16/i32 are signed.
+
+| Offset | Size | Type | Field | Description |
+|---|---|---|---|---|
+| 0 | 1 | u8 | id | 0xCA |
+| 1 | 1 | u8 | unknown | Value repeated from the request |
+| 2 | 4 | i32 | tick | Server tick count |
+
+Notes: ClassicUO has an empty handler.
+
+## Implementation reference
+- ServUO: `Server/Network/Packets.cs` (`UTripTimeResponse`)
+- ClassicUO: `src/ClassicUO.Client/Network/PacketHandlers.cs` (`GetUserServerPingGodClientR`)
