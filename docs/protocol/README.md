@@ -8,6 +8,8 @@ Referência dos pacotes do cliente 7.0.x e de fluxos que combinam vários pacote
 - [packets.md](packets.md): tabelas de pacotes servidor->cliente e cliente->servidor (id, tamanho, nome) e layouts de `0xB4`, `0x84`, `0xF1`/`0xF2`.
 - [gump-layout.md](gump-layout.md): comandos de layout de gump (`{ cmd arg ... }`) dos pacotes `0xB0` e `0xDD`.
 
+- [packets/README.md](packets/README.md): formato campo a campo de cada pacote e de cada subcomando `0xBF`/`0xD7`.
+
 ### Fluxos com vários pacotes
 - [house-customization.md](house-customization.md): editor de casas customizadas (`0xBF/0x20`, `0xBF/0x1D`, `0xBF/0x1E`, `0xD8`, subcomandos `0xD7`), estrutura de planos, compressão e revisão.
 - [boats-smooth-sailing.md](boats-smooth-sailing.md): movimento de barcos (`0xF6`, `0xF7`, `0xBF/0x33`, `0x99`), velocidade, virada, piloto, comparação com o movimento legado.
