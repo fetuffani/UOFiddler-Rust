@@ -61,6 +61,9 @@ pub struct GumpStudioTab {
     uni_fonts: HashMap<u8, Option<UnicodeFont>>,
     html_tex: HashMap<(i32, String), Option<egui::TextureHandle>>,
     html_color: [u8; 3],
+    resizepic_open: bool,
+    resizepic_search: String,
+    resizepic_list: Option<Vec<u32>>,
     text_tex: HashMap<(bool, u8, u32, i32, String), Option<egui::TextureHandle>>,
 }
 
@@ -83,6 +86,9 @@ impl Default for GumpStudioTab {
             uni_fonts: HashMap::new(),
             html_tex: HashMap::new(),
             html_color: [255, 80, 80],
+            resizepic_open: false,
+            resizepic_search: String::new(),
+            resizepic_list: None,
             text_tex: HashMap::new(),
         };
         t.doc = Self::sample_doc();
@@ -300,6 +306,9 @@ impl GumpStudioTab {
         egui::SidePanel::left("gs_left").resizable(true).default_width(250.0).show_inside(ui, |ui| self.element_list(ui));
         egui::SidePanel::right("gs_right").resizable(true).default_width(360.0).show_inside(ui, |ui| self.properties(ui, ctx, d));
         egui::CentralPanel::default().show_inside(ui, |ui| self.canvas(ui, ctx, d));
+        if self.resizepic_open {
+            self.resizepic_window(ctx, d);
+        }
     }
 
     fn toolbar(&mut self, ui: &mut egui::Ui) {
@@ -545,6 +554,9 @@ impl GumpStudioTab {
             match &mut e.kind {
                 ElementKind::Background { gump_id } => {
                     Self::gump_field(ui, "Gump (resizepic):", gump_id);
+                    if ui.button(t!("gs.resizepic.browse")).clicked() {
+                        self.resizepic_open = true;
+                    }
                     preview = Some((*gump_id, true));
                 }
                 ElementKind::Image { gump_id, hue } => {
@@ -727,6 +739,78 @@ impl GumpStudioTab {
                 }
                 None => {
                     ui.weak("gump não encontrado");
+                }
+            }
+        }
+    }
+
+    /// Browser of the resizepic frames found in the client gumps; clicking one sets it on the selected background.
+    fn resizepic_window(&mut self, ctx: &egui::Context, d: &GumpStudioData) {
+        if self.resizepic_list.is_none() {
+            self.resizepic_list = Some(match d.gump_index {
+                Some(gi) => find_resizepics(0xFFFF, |id| {
+                    let i = id as usize;
+                    if !gi.is_valid(i) {
+                        return None;
+                    }
+                    if gi.is_uop() {
+                        gi.get_data(i).filter(|b| b.len() >= 8).map(|b| (u32::from_le_bytes([b[0], b[1], b[2], b[3]]), u32::from_le_bytes([b[4], b[5], b[6], b[7]])))
+                    } else {
+                        Some((((gi.entries[i].extra >> 16) & 0xFFFF) as u32, (gi.entries[i].extra & 0xFFFF) as u32))
+                    }
+                }, |id| {
+                    let parts: Vec<GumpBitmap> = (0..9).filter_map(|k| decode_gump_id(gi, id + k)).collect();
+                    frame_tiles_seamlessly(&parts)
+                }),
+                None => Vec::new(),
+            });
+        }
+        let list = self.resizepic_list.clone().unwrap_or_default();
+        let mut open = true;
+        let mut pick: Option<u32> = None;
+        egui::Window::new(t!("gs.resizepic.title")).open(&mut open).fixed_size([560.0, 420.0]).show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(t!("gs.resizepic.search"));
+                ui.text_edit_singleline(&mut self.resizepic_search);
+            });
+            ui.label(t!("gs.resizepic.count", n = list.len()));
+            ui.label(t!("gs.resizepic.tip"));
+            ui.separator();
+            let q = self.resizepic_search.trim().to_string();
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                egui::Grid::new("gs_resizepic_grid").spacing([8.0, 8.0]).show(ui, |ui| {
+                    let shown: Vec<u32> = list.iter().copied().filter(|id| q.is_empty() || id.to_string().contains(&q)).collect();
+                    for (n, id) in shown.into_iter().enumerate() {
+                        ui.vertical(|ui| {
+                            match self.resize_tex(ctx, d, id, 96, 72) {
+                                Some(t) => {
+                                    if ui.add(egui::ImageButton::new((t.id(), t.size_vec2()))).clicked() {
+                                        pick = Some(id);
+                                    }
+                                }
+                                None => {
+                                    ui.label("?");
+                                }
+                            }
+                            ui.small(id.to_string());
+                        });
+                        if (n + 1) % 5 == 0 {
+                            ui.end_row();
+                        }
+                    }
+                });
+            });
+        });
+        if !open {
+            self.resizepic_open = false;
+        }
+        if let (Some(id), Some(i)) = (pick, self.selected) {
+            if let Some(ElementKind::Background { gump_id }) = self.doc.elements.get(i).map(|e| e.kind.clone()) {
+                if gump_id != id {
+                    self.push_undo();
+                    if let Some(ElementKind::Background { gump_id }) = self.doc.elements.get_mut(i).map(|e| &mut e.kind) {
+                        *gump_id = id;
+                    }
                 }
             }
         }
