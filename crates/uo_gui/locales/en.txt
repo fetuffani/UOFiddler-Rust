@@ -66,6 +66,7 @@ gs.repeat.step_y = Y:
 gs.resizepic.browse = Browse resizepics...
 gs.resizepic.title = Resizepic candidates
 gs.resizepic.search = Search by id:
+gs.resizepic.loading = Scanning client gumps... ({pct}% · {n} found)
 gs.resizepic.count = {n} candidates found in the client gumps (automatic list: it may include pictures that are not frames)
 gs.resizepic.tip = Click a frame to use it on the selected background
 
