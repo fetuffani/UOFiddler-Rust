@@ -1,0 +1,47 @@
+name: Updater test
+
+# Manual only: Actions > Updater test > Run workflow. It does not run on push or pull_request.
+#
+# Proves that the app can really update itself, on Windows and Linux, without GitHub: the script
+# packaging/test-updater.sh builds the app as build 1 (the "installed" copy) and as build 2 (packaged
+# like the release job, plus SHA256SUMS.txt), then runs the installed copy with
+# `--self-update <release dir>`, which uses the same download / SHA-256 check / backup / swap code
+# as the GUI but reads a local directory and opens no window. It checks that:
+#   - the installed executable now reports build 2 (`--version`) and the old one is kept as `<exe>.old`;
+#   - a tampered SHA256SUMS.txt is refused and the installation stays on build 1.
+# Linux also runs the AppImage case (the AppImage file replaces itself) with APPIMAGE_EXTRACT_AND_RUN=1
+# so no FUSE is needed. If appimagetool or the AppImage runtime cannot run on the runner, that step
+# fails visibly; it is not skipped on x86_64.
+# The pure unit tests of the updater (versions, checksums, asset choice, hash mismatch, swap and
+# rollback) run first.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  updater:
+    name: Updater (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: rust:1-bullseye
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Unit tests (updater)
+        run: cargo test -p uo_gui updater --locked
+
+      - name: Self-update end to end
+        shell: bash
+        run: packaging/test-updater.sh ${{ matrix.platform }} "${RUNNER_TEMP:-/tmp}/updater-test"
