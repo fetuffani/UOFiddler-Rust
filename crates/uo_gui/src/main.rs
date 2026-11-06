@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use uo_core::*;
 
+mod packets_tab;
+
 /// All 38 bitfield flags defined in Ultima Online TileData
 pub const TILEDATA_FLAGS: [(&str, u64); 38] = [
     ("Background", 1 << 0),
@@ -70,10 +72,11 @@ pub enum UoTab {
     Speech,
     AnimData,
     GameData,
+    Packets,
 }
 
 impl UoTab {
-    pub const ALL: [UoTab; 17] = [
+    pub const ALL: [UoTab; 18] = [
         UoTab::Items,
         UoTab::LandTiles,
         UoTab::Gumps,
@@ -91,6 +94,7 @@ impl UoTab {
         UoTab::Speech,
         UoTab::AnimData,
         UoTab::GameData,
+        UoTab::Packets,
     ];
 
     pub fn name(&self) -> &'static str {
@@ -112,6 +116,7 @@ impl UoTab {
             UoTab::Speech => "🗣 Speech",
             UoTab::AnimData => "⏱ AnimData",
             UoTab::GameData => "🎮 GameData",
+            UoTab::Packets => "📡 Comunicação",
         }
     }
 
@@ -128,7 +133,8 @@ impl UoTab {
             | UoTab::RadarCol
             | UoTab::Cliloc
             | UoTab::AnimData
-            | UoTab::GameData => TabCategory::Data,
+            | UoTab::GameData
+            | UoTab::Packets => TabCategory::Data,
 
             UoTab::Map
             | UoTab::Light
@@ -157,9 +163,9 @@ impl TabCategory {
 
     pub fn title(&self) -> &'static str {
         match self {
-            TabCategory::Art => "🎨 Arte & Gráficos (6)",
-            TabCategory::Data => "📋 Dados & Tabelas (5)",
-            TabCategory::World => "🗺️ Mundo & Áudio (6)",
+            TabCategory::Art => "🎨 Arte & Gráficos",
+            TabCategory::Data => "📋 Dados & Tabelas",
+            TabCategory::World => "🗺️ Mundo & Áudio",
         }
     }
 }
@@ -486,6 +492,7 @@ pub struct UoFiddlerApp {
     anim_indices: HashMap<u32, FileIndex>,
     anim_resolver: ClassicAnimResolver,
     equip_gump: EquipGumpMap,
+    packets_tab: packets_tab::PacketsTab,
     uop_anim_index: UopAnimationIndex,
     tiledata: Option<TileDataManager>,
     hues: Option<HuesManager>,
@@ -681,6 +688,7 @@ impl Default for UoFiddlerApp {
             anim_indices: HashMap::new(),
             anim_resolver: ClassicAnimResolver::default(),
             equip_gump: EquipGumpMap::default(),
+            packets_tab: packets_tab::PacketsTab::default(),
             uop_anim_index: UopAnimationIndex::new(),
             tiledata: None,
             hues: None,
@@ -2144,26 +2152,26 @@ impl eframe::App for UoFiddlerApp {
                     let is_world = self.active_category == Some(TabCategory::World);
                     let is_all = self.active_category.is_none();
 
-                    if ui.selectable_label(is_art, "🎨 Arte (6)").clicked() {
+                    if ui.selectable_label(is_art, &format!("🎨 Arte ({})", UoTab::ALL.iter().filter(|t| t.category() == TabCategory::Art).count())).clicked() {
                         self.active_category = Some(TabCategory::Art);
                         if self.active_tab.category() != TabCategory::Art {
                             self.active_tab = UoTab::Items;
                             self.load_item_preview(ctx);
                         }
                     }
-                    if ui.selectable_label(is_data, "📋 Dados (5)").clicked() {
+                    if ui.selectable_label(is_data, &format!("📋 Dados ({})", UoTab::ALL.iter().filter(|t| t.category() == TabCategory::Data).count())).clicked() {
                         self.active_category = Some(TabCategory::Data);
                         if self.active_tab.category() != TabCategory::Data {
                             self.active_tab = UoTab::Hues;
                         }
                     }
-                    if ui.selectable_label(is_world, "🗺️ Mundo (6)").clicked() {
+                    if ui.selectable_label(is_world, &format!("🗺️ Mundo ({})", UoTab::ALL.iter().filter(|t| t.category() == TabCategory::World).count())).clicked() {
                         self.active_category = Some(TabCategory::World);
                         if self.active_tab.category() != TabCategory::World {
                             self.active_tab = UoTab::Map;
                         }
                     }
-                    if ui.selectable_label(is_all, "★ Todas (18)").clicked() {
+                    if ui.selectable_label(is_all, &format!("★ Todas ({})", UoTab::ALL.len())).clicked() {
                         self.active_category = None;
                     }
 
@@ -2335,6 +2343,7 @@ impl eframe::App for UoFiddlerApp {
             UoTab::Speech => self.render_speech_tab(ui),
             UoTab::AnimData => self.render_animdata_tab(ui, ctx),
             UoTab::GameData => self.render_gamedata_tab(ui),
+            UoTab::Packets => self.packets_tab.show(ui),
         });
 
         // ------------------ 5. SETTINGS / DIRECTORY PATHS DIALOG ------------------
