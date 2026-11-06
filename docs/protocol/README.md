@@ -14,6 +14,7 @@ Referência dos pacotes do cliente 7.0.x e de fluxos que combinam vários pacote
 - [house-customization.md](house-customization.md): editor de casas customizadas (`0xBF/0x20`, `0xBF/0x1D`, `0xBF/0x1E`, `0xD8`, subcomandos `0xD7`), estrutura de planos, compressão e revisão.
 - [boats-smooth-sailing.md](boats-smooth-sailing.md): movimento de barcos (`0xF6`, `0xF7`, `0xBF/0x33`, `0x99`), velocidade, virada, piloto, comparação com o movimento legado.
 - [gump-open-response.md](gump-open-response.md): abertura de gump (`0xB0`/`0xDD`), resposta (`0xB1`) com switches e campos de texto, fechamento pelo servidor (`0xBF/0x04`).
+- [login-flow.md](login-flow.md): fluxo de login (seed `0xEF`, `0x80`, `0xA8`, `0xA0`, `0x8C`, `0x91`, `0xA9`, seleção, criação e exclusão de personagem, `0xBD`), criptografia e compressão, entrada no mundo (`0x1B` a `0x55`).
 
 ## Como ler
 
