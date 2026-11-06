@@ -471,6 +471,10 @@ fn tile_into(dst: &mut [u8], dw: usize, dh: usize, src: &GumpBitmap, x0: i32, y0
     }
 }
 
+/// Gump ranges that pass the structural rules but are known not to be frames (curated by the
+/// project owner): 2240..=2294 are the spellbook icon pages.
+pub const KNOWN_NON_FRAMES: [std::ops::RangeInclusive<u32>; 1] = [2240..=2294];
+
 /// Ids that start a resizepic: nine consecutive gumps `id..id + 8` in the order
 /// corner, edge, corner / edge, centre, edge / corner, edge, corner where
 /// - the four corners have the same size,
@@ -484,6 +488,10 @@ pub fn find_resizepics(max_id: u32, size_of: impl Fn(u32) -> Option<(u32, u32)>,
     let mut id = 0;
     while id + 8 <= max_id {
         let sizes: Option<Vec<(u32, u32)>> = (0..9).map(|k| size_of(id + k)).collect();
+        if KNOWN_NON_FRAMES.iter().any(|r| r.contains(&id)) {
+            id += 1;
+            continue;
+        }
         if let Some(s) = sizes {
             let (tl, t, tr, l, c, r, bl, b, br) = (s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]);
             let corners_equal = tl == tr && tl == bl && tl == br;
@@ -682,6 +690,9 @@ mod tests {
         };
         let seamless = |id: u32| id == 100;
         assert_eq!(find_resizepics(300, size_of, seamless), vec![100]);
+        // a curated non-frame range is skipped even when the structure fits
+        let in_range = |id: u32| -> Option<(u32, u32)> { (2240..2249).contains(&id).then(|| frame[(id - 2240) as usize]) };
+        assert!(find_resizepics(3000, in_range, |_| true).is_empty());
         // corners of different sizes are never a frame
         let bad = |id: u32| -> Option<(u32, u32)> { (300..309).contains(&id).then(|| if id == 302 { (5, 6) } else { frame[(id - 300) as usize] }) };
         assert!(find_resizepics(400, bad, |_| true).is_empty());

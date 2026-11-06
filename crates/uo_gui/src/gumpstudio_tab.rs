@@ -788,9 +788,7 @@ impl GumpStudioTab {
                                         pick = Some(id);
                                     }
                                 }
-                                None => {
-                                    ui.label("?");
-                                }
+                                None => {}
                             }
                             ui.small(id.to_string());
                         });
