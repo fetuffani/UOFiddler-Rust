@@ -118,14 +118,14 @@ impl PacketsTab {
     pub fn show(&mut self, ui: &mut egui::Ui) {
         egui::TopBottomPanel::top("packets_top").show_inside(ui, |ui| {
             ui.add_space(4.0);
-            ui.heading("📡 Comunicação - referência estática do protocolo (client 7.0.10.3)");
+            ui.heading(t!("protocol.heading"));
             ui.horizontal(|ui| {
                 let n = (self.s2c.len(), self.c2s.len(), self.gump_cmds.len());
                 for (sec, label) in [
-                    (Section::ServerToClient, format!("Servidor → Cliente ({})", n.0)),
-                    (Section::ClientToServer, format!("Cliente → Servidor ({})", n.1)),
-                    (Section::GumpCommands, format!("Comandos de Gump ({})", n.2)),
-                    (Section::Notes, "Notas de análise".to_string()),
+                    (Section::ServerToClient, t!("protocol.sec.s2c", n = n.0)),
+                    (Section::ClientToServer, t!("protocol.sec.c2s", n = n.1)),
+                    (Section::GumpCommands, t!("protocol.sec.gump", n = n.2)),
+                    (Section::Notes, t!("protocol.sec.notes")),
                 ] {
                     if ui.selectable_label(self.section == sec, label).clicked() {
                         self.section = sec;
@@ -137,21 +137,21 @@ impl PacketsTab {
                 ui.horizontal(|ui| {
                     ui.label("🔍");
                     ui.text_edit_singleline(&mut self.search)
-                        .on_hover_text("Filtra por ID (0x1A), nome ou handler");
+                        .on_hover_text(t!("protocol.search.tip"));
                     if self.section != Section::GumpCommands {
-                        ui.checkbox(&mut self.only_var, "só tamanho variável");
-                        ui.checkbox(&mut self.only_fixed, "só tamanho fixo");
-                        ui.label("Confiança:");
+                        ui.checkbox(&mut self.only_var, t!("protocol.only_var"));
+                        ui.checkbox(&mut self.only_fixed, t!("protocol.only_fixed"));
+                        ui.label(t!("protocol.conf"));
                         egui::ComboBox::from_id_salt("pk_conf")
                             .selected_text(match self.min_conf {
-                                'A' => "A (forte)",
-                                'B' => "A + B",
-                                _ => "todas",
+                                'A' => t!("protocol.conf.a"),
+                                'B' => t!("protocol.conf.ab"),
+                                _ => t!("protocol.conf.all"),
                             })
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.min_conf, 'A', "A (forte)");
-                                ui.selectable_value(&mut self.min_conf, 'B', "A + B");
-                                ui.selectable_value(&mut self.min_conf, 'C', "todas");
+                                ui.selectable_value(&mut self.min_conf, 'A', t!("protocol.conf.a"));
+                                ui.selectable_value(&mut self.min_conf, 'B', t!("protocol.conf.ab"));
+                                ui.selectable_value(&mut self.min_conf, 'C', t!("protocol.conf.all"));
                             });
                     }
                 });
@@ -162,7 +162,7 @@ impl PacketsTab {
         match self.section {
             Section::Notes => {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.label("Resumo das atualizações 5-10 da análise estática (EasyUO / client 7.0.10.3):");
+                    ui.label(t!("protocol.notes.summary"));
                     ui.add_space(6.0);
                     ui.label(egui::RichText::new(NOTES_MD).monospace());
                     ui.separator();
@@ -207,14 +207,14 @@ impl PacketsTab {
             egui::TopBottomPanel::bottom("packets_detail").show_inside(ui, |ui| {
                 ui.add_space(4.0);
                 ui.label(egui::RichText::new(format!("{}  {}", r.id_text, r.name)).strong().size(16.0));
-                ui.label(format!(
-                    "Direção: {}   |   Tamanho: {}{}   |   Confiança: {}",
-                    if s2c { "Servidor → Cliente" } else { "Cliente → Servidor" },
-                    r.size,
-                    if r.handler.is_empty() { String::new() } else { format!("   |   Handler: {}", r.handler) },
-                    r.conf
+                ui.label(t!(
+                    "protocol.detail",
+                    dir = if s2c { t!("protocol.dir.s2c") } else { t!("protocol.dir.c2s") },
+                    size = r.size,
+                    handler = if r.handler.is_empty() { String::new() } else { t!("protocol.detail.handler", handler = r.handler) },
+                    conf = r.conf
                 ));
-                ui.label(format!("ID decimal: {}  (0x{:02X})", r.id, r.id));
+                ui.label(t!("protocol.detail.id", id = r.id, hex = format!("{:02X}", r.id)));
                 ui.add_space(4.0);
             });
         }
@@ -229,7 +229,7 @@ impl PacketsTab {
             .column(Column::remainder().at_least(200.0))
             .column(Column::exact(40.0))
             .header(22.0, |mut h| {
-                for t in ["ID", "Tam", "Handler", "Nome", "Conf"] {
+                for t in [t!("protocol.col.id"), t!("protocol.col.size"), t!("protocol.col.handler"), t!("protocol.col.name"), t!("protocol.col.conf")] {
                     h.col(|ui| {
                         ui.strong(t);
                     });
@@ -280,7 +280,7 @@ impl PacketsTab {
             .column(Column::exact(170.0))
             .column(Column::remainder().at_least(200.0))
             .header(22.0, |mut h| {
-                for t in ["#", "Comando", "Args (sscanf)", "Criação / handler", "Notas"] {
+                for t in [t!("protocol.gcol.num"), t!("protocol.gcol.cmd"), t!("protocol.gcol.args"), t!("protocol.gcol.handler"), t!("protocol.gcol.notes")] {
                     h.col(|ui| {
                         ui.strong(t);
                     });
