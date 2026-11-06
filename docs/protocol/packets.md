@@ -85,7 +85,7 @@ Tabelas de pacotes do cliente Ultima Online 7.0.x. Coluna **Tamanho**: número d
 | 0x95 | 9 | Dye Window |
 | 0x97 | 2 | Move Player |
 | 0x98 | var | Mobile Name |
-| 0x99 | 30 | Multi Placement |
+| 0x99 | 30 | Multi Placement (26 bytes em clientes anteriores ao 7.0.9.0) |
 | 0x9A | var | Console Entry Prompt |
 | 0x9E | var | Sell List |
 | 0xA1 | 9 | Update Current HP |
@@ -150,6 +150,7 @@ Tabelas de pacotes do cliente Ultima Online 7.0.x. Coluna **Tamanho**: número d
 | 0xF3 | 26 | Object Info (SA/novo) |
 | 0xF5 | 21 | New Map Message |
 | 0xF6 | var | Boat Moving |
+| 0xF7 | var | Packet Container (agrupa entradas 0xF3 de um mesmo movimento) |
 
 ## Cliente para servidor
 
@@ -233,7 +234,7 @@ Tabelas de pacotes do cliente Ultima Online 7.0.x. Coluna **Tamanho**: número d
 | 0xF4 | var | CrashReport |
 | 0xF8 | — | CreateCharacter70160 |
 | 0xFA | — | Unhandled |
-| 0xFB | — | PublicHouseContent |
+| 0xFB | 2 | PublicHouseContent (id + flag) |
 
 ## Observações
 
