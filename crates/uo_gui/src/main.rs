@@ -17,6 +17,9 @@ mod packets_tab;
 mod paperdoll_tab;
 
 /// All 38 bitfield flags defined in Ultima Online TileData
+/// Symbol-only button label (not translatable text).
+const ICON_CLEAR: &str = "✖";
+
 pub const TILEDATA_FLAGS: [(&str, u64); 38] = [
     ("Background", 1 << 0),
     ("Weapon", 1 << 1),
@@ -2661,24 +2664,24 @@ impl UoFiddlerApp {
             .min_width(260.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("Itens Estáticos");
+                    ui.heading(t!("items.heading"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.selectable_value(&mut self.item_view_mode, true, "📄 List");
-                        ui.selectable_value(&mut self.item_view_mode, false, "🔲 Grid");
+                        ui.selectable_value(&mut self.item_view_mode, true, &t!("common.view_list"));
+                        ui.selectable_value(&mut self.item_view_mode, false, &t!("common.view_grid"));
                     });
                 });
 
                 // Client / Source selector
                 ui.horizontal(|ui| {
                     let classic_btn =
-                        ui.selectable_label(!self.item_mode_enhanced, "📜 Clássico (2D)");
+                        ui.selectable_label(!self.item_mode_enhanced, &t!("items.mode.classic"));
                     if classic_btn.clicked() && self.item_mode_enhanced {
                         self.item_mode_enhanced = false;
                         self.item_thumb_cache.clear();
                         self.load_item_preview(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.item_mode_enhanced, "✨ Enhanced (3D UOP)");
+                        ui.selectable_label(self.item_mode_enhanced, &t!("items.mode.enhanced"));
                     if enhanced_btn.clicked() && !self.item_mode_enhanced {
                         self.item_mode_enhanced = true;
                         self.item_thumb_cache.clear();
@@ -2693,22 +2696,22 @@ impl UoFiddlerApp {
                     .unwrap_or(0x10000);
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.item_search);
-                    if !self.item_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.item_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.item_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.item_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.item_jump_input) {
                             if id < total_items {
@@ -2716,7 +2719,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_item_preview(ctx);
                                 self.status_message =
-                                    format!("Navegado para Item 0x{:04X} ({})", id, id);
+                                    t!("items.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -2941,17 +2944,15 @@ impl UoFiddlerApp {
             .min_width(280.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("📋 Inspetor TileData");
+                    ui.heading(t!("common.inspector"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui
-                            .button("💾 Aplicar")
-                            .on_hover_text("Salvar modificações deste item na memória")
+                            .button(t!("common.apply"))
+                            .on_hover_text(t!("items.apply.tip"))
                             .clicked()
                         {
-                            self.status_message = format!(
-                                "✓ Propriedades do Item 0x{:04X} salvas na memória!",
-                                self.item_selected
-                            );
+                            self.status_message =
+                                t!("items.applied", id = format!("{:04X}", self.item_selected));
                         }
                     });
                 });
@@ -2963,34 +2964,34 @@ impl UoFiddlerApp {
                             .num_columns(2)
                             .spacing([12.0, 6.0])
                             .show(ui, |ui| {
-                                ui.label("Nome:");
+                                ui.label(t!("common.name"));
                                 ui.text_edit_singleline(&mut item_info.name);
                                 ui.end_row();
 
-                                ui.label("Peso:");
+                                ui.label(t!("items.weight"));
                                 ui.add(egui::DragValue::new(&mut item_info.weight).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Altura:");
+                                ui.label(t!("items.height"));
                                 ui.add(egui::DragValue::new(&mut item_info.height).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Anim ID:");
+                                ui.label(t!("items.animid"));
                                 ui.horizontal(|ui| {
                                     ui.add(egui::DragValue::new(&mut item_info.anim_id).range(0..=65535));
                                     ui.label(format!("(0x{:04X})", item_info.anim_id));
                                 });
                                 ui.end_row();
 
-                                ui.label("Qualidade / Camada:");
+                                ui.label(t!("items.quality"));
                                 ui.add(egui::DragValue::new(&mut item_info.quality).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Hue Padrão:");
+                                ui.label(t!("items.hue"));
                                 ui.add(egui::DragValue::new(&mut item_info.hue).range(0..=255));
                                 ui.end_row();
 
-                                ui.label("Flags Hex:");
+                                ui.label(t!("items.flags_hex"));
                                 ui.label(
                                     egui::RichText::new(format!("0x{:016X}", item_info.flags))
                                         .monospace()
@@ -3001,7 +3002,7 @@ impl UoFiddlerApp {
 
                         ui.add_space(8.0);
                         ui.separator();
-                        ui.label(egui::RichText::new("Flags (Bitfield 38):").strong());
+                        ui.label(egui::RichText::new(t!("items.flags_bitfield")).strong());
 
                         egui::ScrollArea::vertical()
                             .auto_shrink([false, false])
@@ -3027,40 +3028,41 @@ impl UoFiddlerApp {
                             });
                     }
                 } else {
-                    ui.label("TileData não carregado.");
+                    ui.label(t!("common.tiledata_missing"));
                 }
             });
 
         // 3. Central Panel: Art Canvas Preview & Zoom
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Item 0x{:04X} ({})",
-                    self.item_selected, self.item_selected
+                ui.heading(t!(
+                    "items.title",
+                    id = format!("{:04X}", self.item_selected),
+                    dec = self.item_selected
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.item_selected);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.item_selected);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
+                    .button(t!("common.export_png"))
                     .on_hover_text("Salvar imagem do item na pasta 'exported_art/'")
                     .clicked()
                 {
@@ -3072,26 +3074,26 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
                 }
 
                 ui.separator();
-                ui.label("Testar Hue:");
+                ui.label(t!("items.test_hue"));
                 if ui
                     .add(egui::DragValue::new(&mut self.item_hue).range(0..=3000))
                     .changed()
@@ -3148,7 +3150,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhuma arte de item disponível",
+                        t!("items.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -3166,13 +3168,13 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.item_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.item_zoom = 2.0;
                     }
-                    if ui.button("3x").on_hover_text("Zoom 300%").clicked() {
+                    if ui.button("3x").on_hover_text(t!("common.zoom_pct", n = 300)).clicked() {
                         self.item_zoom = 3.0;
                     }
                 });
@@ -3188,24 +3190,24 @@ impl UoFiddlerApp {
             .min_width(260.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("Terrenos (Land Tiles)");
+                    ui.heading(t!("land.heading"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.selectable_value(&mut self.land_view_mode, true, "📄 List");
-                        ui.selectable_value(&mut self.land_view_mode, false, "🔲 Grid");
+                        ui.selectable_value(&mut self.land_view_mode, true, &t!("common.view_list"));
+                        ui.selectable_value(&mut self.land_view_mode, false, &t!("common.view_grid"));
                     });
                 });
 
                 // Client / Source selector
                 ui.horizontal(|ui| {
                     let classic_btn =
-                        ui.selectable_label(!self.land_mode_enhanced, "📜 Clássico (2D Diamond)");
+                        ui.selectable_label(!self.land_mode_enhanced, &t!("land.mode.classic"));
                     if classic_btn.clicked() && self.land_mode_enhanced {
                         self.land_mode_enhanced = false;
                         self.land_thumb_cache.clear();
                         self.load_land_preview(ctx);
                     }
                     let enhanced_btn =
-                        ui.selectable_label(self.land_mode_enhanced, "✨ Enhanced (3D Textura)");
+                        ui.selectable_label(self.land_mode_enhanced, &t!("land.mode.enhanced"));
                     if enhanced_btn.clicked() && !self.land_mode_enhanced {
                         self.land_mode_enhanced = true;
                         self.land_thumb_cache.clear();
@@ -3220,22 +3222,22 @@ impl UoFiddlerApp {
                     .unwrap_or(0x4000);
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.land_search);
-                    if !self.land_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.land_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.land_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.land_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.land_jump_input) {
                             if id < total_land {
@@ -3243,7 +3245,7 @@ impl UoFiddlerApp {
                                 self.keyboard_navigated = true;
                                 self.load_land_preview(ctx);
                                 self.status_message =
-                                    format!("Navegado para Terreno 0x{:04X} ({})", id, id);
+                                    t!("land.navigated", id = format!("{:04X}", id), dec = id);
                             }
                         }
                     }
@@ -3466,17 +3468,15 @@ impl UoFiddlerApp {
             .min_width(280.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("📋 Inspetor TileData");
+                    ui.heading(t!("common.inspector"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui
-                            .button("💾 Aplicar")
-                            .on_hover_text("Salvar modificações deste terreno na memória")
+                            .button(t!("common.apply"))
+                            .on_hover_text(t!("land.apply.tip"))
                             .clicked()
                         {
-                            self.status_message = format!(
-                                "✓ Propriedades do Terreno 0x{:04X} salvas na memória!",
-                                self.land_selected
-                            );
+                            self.status_message =
+                                t!("land.applied", id = format!("{:04X}", self.land_selected));
                         }
                     });
                 });
@@ -3491,18 +3491,18 @@ impl UoFiddlerApp {
                                     .num_columns(2)
                                     .spacing([8.0, 6.0])
                                     .show(ui, |ui| {
-                                        ui.label(egui::RichText::new("Nome:").strong());
+                                        ui.label(egui::RichText::new(t!("common.name")).strong());
                                         ui.text_edit_singleline(&mut land_info.name);
                                         ui.end_row();
 
-                                        ui.label("Texture ID:");
+                                        ui.label(t!("land.texture_id"));
                                         ui.horizontal(|ui| {
                                             ui.add(egui::DragValue::new(&mut land_info.texture_id));
                                             ui.label(format!("(0x{:04X})", land_info.texture_id));
                                         });
                                         ui.end_row();
 
-                                        ui.label("Flags (Hex):");
+                                        ui.label(t!("land.flags_hex"));
                                         let mut flags_hex = format!("0x{:016X}", land_info.flags);
                                         if ui
                                             .add(
@@ -3523,7 +3523,7 @@ impl UoFiddlerApp {
 
                                 ui.add_space(8.0);
                                 ui.separator();
-                                ui.label(egui::RichText::new("Flags (Bitfield):").strong());
+                                ui.label(egui::RichText::new(t!("land.flags_bitfield")).strong());
                                 ui.add_space(4.0);
 
                                 // 2 columns for 38 flags
@@ -3548,43 +3548,44 @@ impl UoFiddlerApp {
                                     });
                             });
                     } else {
-                        ui.label("Terreno não encontrado no TileData.");
+                        ui.label(t!("land.not_in_tiledata"));
                     }
                 } else {
-                    ui.label("TileData não carregado.");
+                    ui.label(t!("common.tiledata_missing"));
                 }
             });
 
         // 3. Central Panel: Land Tile Graphic Preview
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "Terreno 0x{:04X} ({})",
-                    self.land_selected, self.land_selected
+                ui.heading(t!(
+                    "land.title",
+                    id = format!("{:04X}", self.land_selected),
+                    dec = self.land_selected
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.land_selected);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.land_selected);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
+                    .button(t!("common.export_png"))
                     .on_hover_text("Salvar imagem do terreno na pasta 'exported_art/'")
                     .clicked()
                 {
@@ -3596,19 +3597,19 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
@@ -3663,7 +3664,7 @@ impl UoFiddlerApp {
                     ui.painter().text(
                         rect.center(),
                         egui::Align2::CENTER_CENTER,
-                        "Nenhum terreno disponível",
+                        t!("land.empty"),
                         egui::FontId::proportional(14.0),
                         egui::Color32::GRAY,
                     );
@@ -3681,13 +3682,13 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.land_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.land_zoom = 2.0;
                     }
-                    if ui.button("3x").on_hover_text("Zoom 300%").clicked() {
+                    if ui.button("3x").on_hover_text(t!("common.zoom_pct", n = 300)).clicked() {
                         self.land_zoom = 3.0;
                     }
                 });
@@ -3727,22 +3728,22 @@ impl UoFiddlerApp {
                 ));
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.gump_search);
-                    if !self.gump_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.gump_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gump_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.gump_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.gump_jump_input) {
                             if self.valid_gumps.contains(&(id as u32)) {
@@ -3818,27 +3819,27 @@ impl UoFiddlerApp {
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.gump_id);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.gump_id);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
+                    .button(t!("common.export_png"))
                     .on_hover_text("Salvar imagem do Gump na pasta 'exported_art/'")
                     .clicked()
                 {
@@ -3850,19 +3851,19 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
@@ -3935,10 +3936,10 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.gump_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.gump_zoom = 2.0;
                     }
                 });
@@ -3952,7 +3953,7 @@ impl UoFiddlerApp {
         ui.horizontal(|ui| {
             ui.label("Buscar Hue:");
             ui.text_edit_singleline(&mut self.hue_search);
-            if ui.button("✖").clicked() {
+            if ui.button(ICON_CLEAR).clicked() {
                 self.hue_search.clear();
             }
         });
@@ -4027,22 +4028,22 @@ impl UoFiddlerApp {
                 ui.label(format!("Total de texturas: {}", self.valid_textures.len()));
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.texture_search);
-                    if !self.texture_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.texture_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.texture_search.clear();
                     }
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label("🎯 Ir para ID:");
+                    ui.label(t!("common.goto_id"));
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.texture_jump_input)
                             .desired_width(80.0)
                             .hint_text("0x..."),
                     );
                     if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                        || ui.button("Ir").clicked()
+                        || ui.button(t!("common.go")).clicked()
                     {
                         if let Some(id) = parse_id_input(&self.texture_jump_input) {
                             if self.valid_textures.contains(&(id as u32)) {
@@ -4113,27 +4114,27 @@ impl UoFiddlerApp {
                 ));
 
                 if ui
-                    .button("📋 Copiar Hex")
-                    .on_hover_text("Copiar ID Hexadecimal para a área de transferência")
+                    .button(t!("common.copy_hex"))
+                    .on_hover_text(t!("common.copy_hex.tip"))
                     .clicked()
                 {
                     let hex = format!("0x{:04X}", self.texture_id);
                     ctx.copy_text(hex.clone());
-                    self.status_message = format!("✓ {} copiado!", hex);
+                    self.status_message = t!("common.copied", value = hex);
                 }
 
                 if ui
-                    .button("📋 Copiar Dec")
-                    .on_hover_text("Copiar ID Decimal para a área de transferência")
+                    .button(t!("common.copy_dec"))
+                    .on_hover_text(t!("common.copy_dec.tip"))
                     .clicked()
                 {
                     let dec = format!("{}", self.texture_id);
                     ctx.copy_text(dec.clone());
-                    self.status_message = format!("✓ {} copiado!", dec);
+                    self.status_message = t!("common.copied", value = dec);
                 }
 
                 if ui
-                    .button("💾 Exportar PNG")
+                    .button(t!("common.export_png"))
                     .on_hover_text("Salvar imagem da textura na pasta 'exported_art/'")
                     .clicked()
                 {
@@ -4145,19 +4146,19 @@ impl UoFiddlerApp {
                             &bmp.rgba,
                             &filename,
                         ) {
-                            self.status_message = format!("✓ Imagem exportada para {}", path);
+                            self.status_message = t!("common.exported", path = path);
                         }
                     }
                 }
 
                 let chk_label = if self.preview_checkerboard {
-                    "🏁 Grade: Ligada"
+                    t!("common.grid_on")
                 } else {
-                    "⬛ Grade: Desligada"
+                    t!("common.grid_off")
                 };
                 if ui
                     .selectable_label(self.preview_checkerboard, chk_label)
-                    .on_hover_text("Alternar fundo entre sólido e grade transparente")
+                    .on_hover_text(t!("common.grid.tip"))
                     .clicked()
                 {
                     self.preview_checkerboard = !self.preview_checkerboard;
@@ -4230,13 +4231,13 @@ impl UoFiddlerApp {
                             .show_value(false),
                     );
                     ui.add_space(4.0);
-                    if ui.button("1x").on_hover_text("Zoom 100%").clicked() {
+                    if ui.button("1x").on_hover_text(t!("common.zoom_pct", n = 100)).clicked() {
                         self.texture_zoom = 1.0;
                     }
-                    if ui.button("2x").on_hover_text("Zoom 200%").clicked() {
+                    if ui.button("2x").on_hover_text(t!("common.zoom_pct", n = 200)).clicked() {
                         self.texture_zoom = 2.0;
                     }
-                    if ui.button("3x").on_hover_text("Zoom 300%").clicked() {
+                    if ui.button("3x").on_hover_text(t!("common.zoom_pct", n = 300)).clicked() {
                         self.texture_zoom = 3.0;
                     }
                 });
@@ -4269,7 +4270,7 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.label("Buscar:");
                     ui.text_edit_singleline(&mut self.radar_search);
-                    if ui.button("✖").clicked() {
+                    if ui.button(ICON_CLEAR).clicked() {
                         self.radar_search.clear();
                     }
                 });
@@ -4493,7 +4494,7 @@ impl UoFiddlerApp {
                                 }
                             }
                         }
-                        if ui.button("✖").clicked() {
+                        if ui.button(ICON_CLEAR).clicked() {
                             self.anim_search.clear();
                         }
                     });
@@ -4908,7 +4909,7 @@ impl UoFiddlerApp {
             }
             ui.label("Buscar Cliloc:");
             ui.text_edit_singleline(&mut self.cliloc_search);
-            if ui.button("✖").clicked() {
+            if ui.button(ICON_CLEAR).clicked() {
                 self.cliloc_search.clear();
             }
         });
@@ -4983,7 +4984,7 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.label("Buscar:");
                     ui.text_edit_singleline(&mut self.sound_search);
-                    if ui.button("✖").clicked() {
+                    if ui.button(ICON_CLEAR).clicked() {
                         self.sound_search.clear();
                     }
                 });
@@ -5320,9 +5321,9 @@ impl UoFiddlerApp {
 
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.multi_search);
-                    if !self.multi_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.multi_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.multi_search.clear();
                     }
                 });
@@ -5713,7 +5714,7 @@ impl UoFiddlerApp {
         ui.horizontal(|ui| {
             ui.label("Buscar Palavra-chave:");
             ui.text_edit_singleline(&mut self.speech_search);
-            if ui.button("✖").clicked() {
+            if ui.button(ICON_CLEAR).clicked() {
                 self.speech_search.clear();
             }
         });
@@ -5872,9 +5873,9 @@ impl UoFiddlerApp {
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label("🔍 Buscar:");
+                    ui.label(t!("common.search"));
                     ui.text_edit_singleline(&mut self.gamedata_search);
-                    if !self.gamedata_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.gamedata_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gamedata_search.clear();
                     }
                 });
@@ -6028,7 +6029,7 @@ impl UoFiddlerApp {
                 ui.horizontal(|ui| {
                     ui.label("🔍 Filtrar linhas:");
                     ui.text_edit_singleline(&mut self.gamedata_row_search);
-                    if !self.gamedata_row_search.is_empty() && ui.button("✖").clicked() {
+                    if !self.gamedata_row_search.is_empty() && ui.button(ICON_CLEAR).clicked() {
                         self.gamedata_row_search.clear();
                     }
                 });
