@@ -81,7 +81,18 @@ pub fn tr_plural(key: &str, n: usize) -> String {
     tr_args(&k, &[("n", n.to_string())])
 }
 
-/// Language for the first run: the system language when supported, English otherwise.
+/// "English (enu)" for a client-file language suffix, in the UI language (the core
+/// `uo_core::language_name` stays the Portuguese fallback); unknown suffixes are shown as they are.
+pub fn client_language_name(code: &str) -> String {
+    let c = code.to_lowercase();
+    let key = match c.as_str() {
+        "enu" | "deu" | "esp" | "fra" | "jpn" | "kor" | "cht" | "chs" => format!("client_lang.{c}"),
+        _ => return c,
+    };
+    format!("{} ({})", tr(&key), c)
+}
+
+/// Language for the first run:the system language when supported, English otherwise.
 /// Reads LC_ALL / LC_MESSAGES / LANG (Unix); other systems fall back to English.
 pub fn detect_system_language() -> &'static str {
     for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {

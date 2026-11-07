@@ -270,7 +270,7 @@ impl FilesTab {
                     for l in &langs {
                         if ui
                             .selectable_label(self.lang_filter.as_deref() == Some(l.as_str()), l.as_str())
-                            .on_hover_text(language_name(l))
+                            .on_hover_text(crate::i18n::client_language_name(l))
                             .clicked()
                         {
                             self.lang_filter = Some(l.clone());
