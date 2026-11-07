@@ -122,6 +122,36 @@ fn slot_label(layer: u8) -> String {
     }
 }
 
+/// Localized long name of a layer (layer list, catalog title, empty-slot tooltip). The core
+/// `LayerInfo::name` stays as the Portuguese fallback.
+fn layer_label(layer: u8) -> String {
+    match layer {
+        1 => t!("paperdoll.layer.1"),
+        2 => t!("paperdoll.layer.2"),
+        3 => t!("paperdoll.layer.3"),
+        4 => t!("paperdoll.layer.4"),
+        5 => t!("paperdoll.layer.5"),
+        6 => t!("paperdoll.layer.6"),
+        7 => t!("paperdoll.layer.7"),
+        8 => t!("paperdoll.layer.8"),
+        9 => t!("paperdoll.layer.9"),
+        10 => t!("paperdoll.layer.10"),
+        11 => t!("paperdoll.layer.11"),
+        12 => t!("paperdoll.layer.12"),
+        13 => t!("paperdoll.layer.13"),
+        14 => t!("paperdoll.layer.14"),
+        16 => t!("paperdoll.layer.16"),
+        17 => t!("paperdoll.layer.17"),
+        18 => t!("paperdoll.layer.18"),
+        19 => t!("paperdoll.layer.19"),
+        20 => t!("paperdoll.layer.20"),
+        21 => t!("paperdoll.layer.21"),
+        22 => t!("paperdoll.layer.22"),
+        24 => t!("paperdoll.layer.24"),
+        _ => layer_info(layer).map_or_else(|| "?".to_string(), |l| l.name.to_string()),
+    }
+}
+
 /// Localized label of a body kind (the core `label()` stays the Portuguese fallback).
 fn body_label(b: BodyKind) -> String {
     match b {
@@ -500,7 +530,7 @@ impl PaperdollTab {
                             hue = e.hue
                         ))
                     }
-                    None => resp.on_hover_text(t!("paperdoll.slot.empty", name = info.name)),
+                    None => resp.on_hover_text(t!("paperdoll.slot.empty", name = layer_label(info.id))),
                 };
                 if resp.clicked() {
                     select = Some(info.id);
@@ -571,7 +601,7 @@ impl PaperdollTab {
         egui::ScrollArea::vertical().id_salt("pd_layers").max_height(240.0).show(ui, |ui| {
             for info in LAYERS.iter() {
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(self.sel_layer == info.id, format!("{:>2} {}", info.id, info.name)).clicked() {
+                    if ui.selectable_label(self.sel_layer == info.id, format!("{:>2} {}", info.id, layer_label(info.id))).clicked() {
                         self.sel_layer = info.id;
                     }
                     let mut remove = false;
@@ -592,7 +622,7 @@ impl PaperdollTab {
             }
         });
         ui.separator();
-        let name = layer_info(self.sel_layer).map_or("", |l| l.name);
+        let name = layer_label(self.sel_layer);
         ui.strong(t!("paperdoll.layer_items", name = name));
         ui.horizontal(|ui| {
             ui.label("🔍");

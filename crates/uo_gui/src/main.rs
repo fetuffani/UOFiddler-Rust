@@ -4915,10 +4915,10 @@ impl UoFiddlerApp {
             if !langs.is_empty() {
                 let mut chosen = self.file_manager.language.clone();
                 egui::ComboBox::from_label(t!("cliloc.language"))
-                    .selected_text(language_name(&chosen))
+                    .selected_text(crate::i18n::client_language_name(&chosen))
                     .show_ui(ui, |ui| {
                         for l in &langs {
-                            ui.selectable_value(&mut chosen, l.clone(), language_name(l));
+                            ui.selectable_value(&mut chosen, l.clone(), crate::i18n::client_language_name(l));
                         }
                     });
                 if chosen != self.file_manager.language {
