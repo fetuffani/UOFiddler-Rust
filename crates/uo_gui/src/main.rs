@@ -11,6 +11,7 @@ use uo_core::*;
 #[macro_use]
 mod i18n;
 mod files_tab;
+mod fonts;
 mod gumpstudio_tab;
 mod map;
 mod packets_tab;
@@ -2452,14 +2453,20 @@ impl eframe::App for UoFiddlerApp {
             UoTab::Textures => self.render_textures_tab(ui, ctx),
             UoTab::RadarCol => self.render_radar_col_tab(ui, ctx),
             UoTab::Animations => self.render_animations_tab(ui, ctx),
-            UoTab::Cliloc => self.render_cliloc_tab(ui),
+            UoTab::Cliloc => {
+                fonts::ensure_cjk(ctx);
+                self.render_cliloc_tab(ui)
+            }
             UoTab::Sounds => self.render_sounds_tab(ui),
             UoTab::Map => self.render_map_tab(ui, ctx),
             UoTab::Multis => self.render_multis_tab(ui, ctx),
             UoTab::Light => self.render_light_tab(ui, ctx),
             UoTab::Fonts => self.render_fonts_tab(ui, ctx),
             UoTab::Skills => self.render_skills_tab(ui),
-            UoTab::Speech => self.render_speech_tab(ui),
+            UoTab::Speech => {
+                fonts::ensure_cjk(ctx);
+                self.render_speech_tab(ui)
+            }
             UoTab::AnimData => self.render_animdata_tab(ui, ctx),
             UoTab::GameData => self.render_gamedata_tab(ui),
             UoTab::Packets => self.packets_tab.show(ui),
@@ -2491,6 +2498,7 @@ impl eframe::App for UoFiddlerApp {
                 self.paperdoll_tab.show(ui, ctx, data.as_ref());
             }
             UoTab::Files => {
+                fonts::ensure_cjk(ctx);
                 if let Some(tab) = self.files_tab.show(ui, ctx, &self.file_manager) {
                     self.active_tab = tab;
                 }
@@ -2556,7 +2564,7 @@ impl eframe::App for UoFiddlerApp {
                                 if let Some(p) = opt {
                                     ui.label(
                                         egui::RichText::new(format!(
-                                            "✓ ({})",
+                                            "✔ ({})",
                                             p.file_name().unwrap_or_default().to_string_lossy()
                                         ))
                                         .color(egui::Color32::from_rgb(102, 187, 106)),
@@ -4692,7 +4700,7 @@ impl UoFiddlerApp {
                         .show_ui(ui, |ui| {
                             for (act, name) in actions {
                                 let is_def = self.is_action_defined(self.anim_body, *act);
-                                let check = if is_def { "✓ " } else { "   " };
+                                let check = if is_def { "✔ " } else { "   " };
                                 if ui
                                     .selectable_value(
                                         &mut self.anim_action,
@@ -4714,7 +4722,7 @@ impl UoFiddlerApp {
                                             .selectable_value(
                                                 &mut self.anim_action,
                                                 extra_act,
-                                                format!("✓ {:02} - {}", extra_act, t!("anim.extra", n = extra_act)),
+                                                format!("✔ {:02} - {}", extra_act, t!("anim.extra", n = extra_act)),
                                             )
                                             .clicked()
                                         {

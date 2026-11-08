@@ -112,7 +112,7 @@ const TEXTS: &[(&str, &str)] = &[
     ("map.auto_border", "Auto border"),
     ("map.auto_border_hint", "Terrain: put the borders with the land around the stroke"),
     ("map.bad_goto", "Type x, y"),
-    ("map.band_hint", "Visible heights. Drag a handle by 1 (Shift: by floors); click a handle, then ↑ ↓ move it by 1; the wheel here moves the nearest handle by 5 (Shift: by 1); double click shows everything. Ctrl + wheel on the map moves the band."),
+    ("map.band_hint", "Visible heights. Drag a handle by 1 (Shift: by floors); click a handle, then ⬆ ⬇ move it by 1; the wheel here moves the nearest handle by 5 (Shift: by 1); double click shows everything. Ctrl + wheel on the map moves the band."),
     ("map.brush", "Brush"),
     ("map.brush_card_hint", "Click to open the palette"),
     ("map.brush_hue", "Hue {0}"),

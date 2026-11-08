@@ -106,6 +106,16 @@ fn read_range(path: &Path, offset: u64, len: usize) -> Vec<u8> {
     buf
 }
 
+/// Localized text of a conversion error (the core `Display` is the English fallback).
+fn convert_error_text(e: &ConvertError) -> String {
+    match e {
+        ConvertError::InvalidUop => t!("files.convert.err_invalid_uop"),
+        ConvertError::EntryRead => t!("files.convert.err_entry"),
+        ConvertError::InputFile(name, msg) => format!("{name}: {msg}"),
+        ConvertError::Io(msg) => msg.clone(),
+    }
+}
+
 /// Localized label of a file kind (the core `label()` stays the Portuguese fallback).
 fn kind_label(k: ClientFileKind) -> String {
     match k {
@@ -344,7 +354,7 @@ impl FilesTab {
                 if ui.button(t!("files.convert.to_mul")).on_hover_text(t!("files.convert.output", path = out.display())).clicked() {
                     self.convert_msg = Some(match uop_to_mul(k, path, &out) {
                         Ok(r) => t!("files.convert.done_mul", n = r.entries, path = out.display()),
-                        Err(e) => format!("✗ {}", e),
+                        Err(e) => format!("✖ {}", convert_error_text(&e)),
                     });
                 }
             }
@@ -353,7 +363,7 @@ impl FilesTab {
                     let _ = std::fs::create_dir_all(&out);
                     self.convert_msg = Some(match mul_to_uop(k, dir, &out.join(k.uop_name())) {
                         Ok(r) => t!("files.convert.done_uop", n = r.entries, path = out.join(k.uop_name()).display()),
-                        Err(e) => format!("✗ {}", e),
+                        Err(e) => format!("✖ {}", convert_error_text(&e)),
                     });
                 }
             }

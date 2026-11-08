@@ -4,9 +4,28 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 
-const PACKETS_MD: &str = include_str!("../data/client_packets.md");
-const GUMP_CMDS_MD: &str = include_str!("../data/gump_commands.md");
-const NOTES_MD: &str = include_str!("../data/protocol_notes.md");
+/// The three data files of one language: (packets, gump commands, analysis notes).
+type Sources = (&'static str, &'static str, &'static str);
+
+const SOURCES_PT_BR: Sources = (
+    include_str!("../data/pt-BR/client_packets.md"),
+    include_str!("../data/pt-BR/gump_commands.md"),
+    include_str!("../data/pt-BR/protocol_notes.md"),
+);
+const SOURCES_EN: Sources = (
+    include_str!("../data/en/client_packets.md"),
+    include_str!("../data/en/gump_commands.md"),
+    include_str!("../data/en/protocol_notes.md"),
+);
+
+/// Data files for an interface language (English for every language without its own files).
+fn sources_for(lang: &str) -> Sources {
+    if lang == "pt-BR" {
+        SOURCES_PT_BR
+    } else {
+        SOURCES_EN
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct PacketRow {
@@ -36,6 +55,9 @@ enum Section {
 }
 
 pub struct PacketsTab {
+    /// interface language the tables were loaded for
+    lang: String,
+    sources: Sources,
     s2c: Vec<PacketRow>,
     c2s: Vec<PacketRow>,
     gump_cmds: Vec<GumpCmdRow>,
@@ -57,7 +79,8 @@ fn parse_packets(md: &str) -> (Vec<PacketRow>, Vec<PacketRow>) {
     let mut cur_s2c = true;
     for line in md.lines() {
         if line.starts_with("## ") {
-            cur_s2c = line.contains("Servidor");
+            // "## Servidor → cliente" / "## Server → client" (the other direction starts with "## Client"/"## Cliente")
+            cur_s2c = line.starts_with("## Servidor") || line.starts_with("## Server ");
             continue;
         }
         if !line.starts_with("| 0x") {
@@ -95,11 +118,15 @@ fn parse_gump_cmds(md: &str) -> Vec<GumpCmdRow> {
 
 impl Default for PacketsTab {
     fn default() -> Self {
-        let (s2c, c2s) = parse_packets(PACKETS_MD);
+        let lang = crate::i18n::language();
+        let sources = sources_for(&lang);
+        let (s2c, c2s) = parse_packets(sources.0);
         Self {
+            lang,
+            sources,
             s2c,
             c2s,
-            gump_cmds: parse_gump_cmds(GUMP_CMDS_MD),
+            gump_cmds: parse_gump_cmds(sources.1),
             section: Section::ServerToClient,
             search: String::new(),
             only_var: false,
@@ -116,6 +143,16 @@ impl PacketsTab {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
+        if self.lang != crate::i18n::language() {
+            // the interface language changed: reload the tables, keeping the view settings
+            let fresh = Self::default();
+            self.lang = fresh.lang;
+            self.sources = fresh.sources;
+            self.s2c = fresh.s2c;
+            self.c2s = fresh.c2s;
+            self.gump_cmds = fresh.gump_cmds;
+            self.selected = None;
+        }
         egui::TopBottomPanel::top("packets_top").show_inside(ui, |ui| {
             ui.add_space(4.0);
             ui.heading(t!("protocol.heading"));
@@ -164,9 +201,9 @@ impl PacketsTab {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.label(t!("protocol.notes.summary"));
                     ui.add_space(6.0);
-                    ui.label(egui::RichText::new(NOTES_MD).monospace());
+                    ui.label(egui::RichText::new(self.sources.2).monospace());
                     ui.separator();
-                    ui.label(egui::RichText::new(GUMP_CMDS_MD.split("## gumppic").nth(1).map(|s| format!("## gumppic{s}")).unwrap_or_default()).monospace());
+                    ui.label(egui::RichText::new(self.sources.1.split("## gumppic").nth(1).map(|s| format!("## gumppic{s}")).unwrap_or_default()).monospace());
                 });
             }
             Section::GumpCommands => self.show_gump_cmds(ui),
@@ -322,5 +359,26 @@ mod tests {
         assert_eq!(g, 27);
         assert!(t.s2c.iter().any(|r| r.id == 0x1A && r.size == "var"));
         assert!(t.c2s.iter().any(|r| r.id == 0x02 && r.size == "7"));
+    }
+
+    #[test]
+    fn both_languages_have_the_same_tables() {
+        let (pt, en) = (sources_for("pt-BR"), sources_for("en"));
+        let (pt_p, en_p) = (parse_packets(pt.0), parse_packets(en.0));
+        assert_eq!(pt_p.0.len(), en_p.0.len());
+        assert_eq!(pt_p.1.len(), en_p.1.len());
+        assert_eq!(parse_gump_cmds(pt.1).len(), parse_gump_cmds(en.1).len());
+        // the notes have the same sections
+        assert_eq!(pt.2.matches("\n## ").count(), en.2.matches("\n## ").count());
+        assert!(en.1.contains("## gumppic") && pt.1.contains("## gumppic"));
+    }
+
+    #[test]
+    fn english_tables_have_no_portuguese() {
+        let en = sources_for("en");
+        for (n, text) in [("packets", en.0), ("gump commands", en.1), ("notes", en.2)] {
+            let bad: Vec<_> = text.chars().filter(|c| "ãõçáéíóúâêôà".contains(*c)).collect();
+            assert!(bad.is_empty(), "{n}: Portuguese characters {bad:?}");
+        }
     }
 }
