@@ -981,7 +981,7 @@ fn help(ctx: &egui::Context, open: &mut bool) {
             ("V B T U E R", "map.keys_tools"),
             ("I · H · ?", "map.keys_palette"),
             ("W A S D", "map.keys_walk"),
-            ("↑ ↓ ← →", "map.keys_move"),
+            ("⬆ ⬇ ⬅ ➡", "map.keys_move"),
             ("PgUp · PgDn", "map.keys_z"),
             ("Del · C", "map.keys_delete"),
             ("Ctrl+Z · Ctrl+Y", "map.keys_undo"),

@@ -103,6 +103,39 @@ pub fn write_uop(path: &Path, entries: &[(String, Vec<u8>)]) -> std::io::Result<
     Ok(())
 }
 
+/// Why a conversion failed. The GUI translates the kind; `Display` is the English text for the
+/// command line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConvertError {
+    /// the UOP file is invalid or unreadable
+    InvalidUop,
+    /// an entry of the UOP could not be read
+    EntryRead,
+    /// reading a file of the input folder failed (file name, system message)
+    InputFile(String, String),
+    /// any other I/O error (system message)
+    Io(String),
+}
+
+impl std::fmt::Display for ConvertError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidUop => write!(f, "invalid or unreadable UOP"),
+            Self::EntryRead => write!(f, "failed to read entry"),
+            Self::InputFile(name, e) => write!(f, "{name}: {e}"),
+            Self::Io(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for ConvertError {}
+
+impl From<std::io::Error> for ConvertError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e.to_string())
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct ConvertReport {
     pub entries: usize,
@@ -111,29 +144,29 @@ pub struct ConvertReport {
 }
 
 /// UOP -> MUL (+IDX). Writes `out_dir/<mul>` and `out_dir/<idx>` for art/gump.
-pub fn uop_to_mul(kind: LegacyKind, uop_path: &Path, out_dir: &Path) -> Result<ConvertReport, String> {
-    let uop = read_uop(uop_path).ok_or("UOP inválido ou ilegível")?;
+pub fn uop_to_mul(kind: LegacyKind, uop_path: &Path, out_dir: &Path) -> Result<ConvertReport, ConvertError> {
+    let uop = read_uop(uop_path).ok_or(ConvertError::InvalidUop)?;
     let by_hash: std::collections::HashMap<u64, usize> =
         uop.entries.iter().enumerate().map(|(i, e)| (e.hash, i)).collect();
-    fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(out_dir)?;
     let (idx_name, mul_name) = kind.mul_names();
     let mul_path = out_dir.join(&mul_name);
     let mut report = ConvertReport::default();
 
     match kind {
         LegacyKind::Map(_) => {
-            let mut mul = fs::File::create(&mul_path).map_err(|e| e.to_string())?;
+            let mut mul = fs::File::create(&mul_path)?;
             for i in 0..kind.max_entries() {
                 let Some(&ei) = by_hash.get(&hash_file_name(&kind.entry_name(i))) else { break };
-                let data = read_uop_entry(uop_path, &uop.entries[ei]).ok_or("falha ao ler entrada")?;
-                mul.write_all(&data).map_err(|e| e.to_string())?;
+                let data = read_uop_entry(uop_path, &uop.entries[ei]).ok_or(ConvertError::EntryRead)?;
+                mul.write_all(&data)?;
                 report.entries += 1;
                 report.bytes += data.len() as u64;
             }
             report.outputs.push(mul_path);
         }
         _ => {
-            let mut mul = fs::File::create(&mul_path).map_err(|e| e.to_string())?;
+            let mut mul = fs::File::create(&mul_path)?;
             let mut idx: Vec<u8> = Vec::new();
             let mut last_valid = 0usize;
             let mut pos: u32 = 0;
@@ -141,7 +174,7 @@ pub fn uop_to_mul(kind: LegacyKind, uop_path: &Path, out_dir: &Path) -> Result<C
             let mut records: Vec<(i32, i32, i32)> = vec![(-1, -1, -1); total];
             for i in 0..total {
                 let Some(&ei) = by_hash.get(&hash_file_name(&kind.entry_name(i))) else { continue };
-                let data = read_uop_entry(uop_path, &uop.entries[ei]).ok_or("falha ao ler entrada")?;
+                let data = read_uop_entry(uop_path, &uop.entries[ei]).ok_or(ConvertError::EntryRead)?;
                 let (payload, extra) = if kind == LegacyKind::Gump {
                     if data.len() < 8 {
                         continue;
@@ -152,7 +185,7 @@ pub fn uop_to_mul(kind: LegacyKind, uop_path: &Path, out_dir: &Path) -> Result<C
                 } else {
                     (&data[..], 0)
                 };
-                mul.write_all(payload).map_err(|e| e.to_string())?;
+                mul.write_all(payload)?;
                 records[i] = (pos as i32, payload.len() as i32, extra);
                 pos += payload.len() as u32;
                 last_valid = i + 1;
@@ -165,7 +198,7 @@ pub fn uop_to_mul(kind: LegacyKind, uop_path: &Path, out_dir: &Path) -> Result<C
                 idx.extend_from_slice(&r.2.to_le_bytes());
             }
             let idx_path = out_dir.join(idx_name.unwrap());
-            fs::write(&idx_path, idx).map_err(|e| e.to_string())?;
+            fs::write(&idx_path, idx)?;
             report.outputs.push(mul_path);
             report.outputs.push(idx_path);
         }
@@ -174,9 +207,9 @@ pub fn uop_to_mul(kind: LegacyKind, uop_path: &Path, out_dir: &Path) -> Result<C
 }
 
 /// MUL (+IDX) -> UOP. Reads `in_dir/<mul>` (+ idx) and writes `out_uop`.
-pub fn mul_to_uop(kind: LegacyKind, in_dir: &Path, out_uop: &Path) -> Result<ConvertReport, String> {
+pub fn mul_to_uop(kind: LegacyKind, in_dir: &Path, out_uop: &Path) -> Result<ConvertReport, ConvertError> {
     let (idx_name, mul_name) = kind.mul_names();
-    let mul = fs::read(in_dir.join(&mul_name)).map_err(|e| format!("{}: {}", mul_name, e))?;
+    let mul = fs::read(in_dir.join(&mul_name)).map_err(|e| ConvertError::InputFile(mul_name.clone(), e.to_string()))?;
     let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
     match kind {
         LegacyKind::Map(_) => {
@@ -186,7 +219,7 @@ pub fn mul_to_uop(kind: LegacyKind, in_dir: &Path, out_uop: &Path) -> Result<Con
         }
         _ => {
             let idx_name = idx_name.unwrap();
-            let idx = fs::read(in_dir.join(&idx_name)).map_err(|e| format!("{}: {}", idx_name, e))?;
+            let idx = fs::read(in_dir.join(&idx_name)).map_err(|e| ConvertError::InputFile(idx_name.clone(), e.to_string()))?;
             for (i, rec) in idx.chunks_exact(12).enumerate().take(kind.max_entries()) {
                 let off = i32::from_le_bytes(rec[0..4].try_into().unwrap());
                 let len = i32::from_le_bytes(rec[4..8].try_into().unwrap());
@@ -209,7 +242,7 @@ pub fn mul_to_uop(kind: LegacyKind, in_dir: &Path, out_uop: &Path) -> Result<Con
             }
         }
     }
-    write_uop(out_uop, &entries).map_err(|e| e.to_string())?;
+    write_uop(out_uop, &entries)?;
     Ok(ConvertReport {
         entries: entries.len(),
         bytes: entries.iter().map(|e| e.1.len() as u64).sum(),
@@ -269,5 +302,17 @@ mod tests {
         let out = tmp("mout");
         uop_to_mul(LegacyKind::Map(1), &uop, &out).unwrap();
         assert_eq!(fs::read(out.join("map1.mul")).unwrap(), mul);
+    }
+
+    #[test]
+    fn an_invalid_uop_is_a_typed_error() {
+        let dir = std::env::temp_dir().join(format!("uoconv_bad_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bad = dir.join("artLegacyMUL.uop");
+        std::fs::write(&bad, b"not a uop").unwrap();
+        let err = uop_to_mul(LegacyKind::Art, &bad, &dir.join("out")).unwrap_err();
+        assert_eq!(err, ConvertError::InvalidUop);
+        assert_eq!(err.to_string(), "invalid or unreadable UOP");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

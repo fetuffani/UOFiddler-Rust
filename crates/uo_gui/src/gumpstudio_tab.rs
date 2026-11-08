@@ -158,13 +158,13 @@ impl GumpStudioTab {
         let mk = |name: &str, kind, x, y, w, h| GumpElement { name: name.into(), x, y, w, h, page: 0, kind, repeat: None, group: 0 };
         d.elements = vec![
             mk("background", ElementKind::Background { gump_id: 9200 }, 0, 0, 300, 240),
-            mk("title", ElementKind::Label { text: "Example gump".into(), hue: 52, font: 1, ascii: false }, 20, 15, 0, 0),
-            mk("name_entry", ElementKind::TextEntry { hue: 0, text: "type here".into(), id: 0 }, 20, 50, 200, 20),
+            mk("title", ElementKind::Label { text: t!("gs.sample.title"), hue: 52, font: 1, ascii: false }, 20, 15, 0, 0),
+            mk("name_entry", ElementKind::TextEntry { hue: 0, text: t!("gs.sample.entry"), id: 0 }, 20, 50, 200, 20),
             mk("opt", ElementKind::Checkbox { off: 210, on: 211, checked: true, id: 0 }, 20, 85, 0, 0),
-            mk("opt_text", ElementKind::Label { text: "Enable".into(), hue: 0, font: 1, ascii: false }, 50, 87, 0, 0),
+            mk("opt_text", ElementKind::Label { text: t!("gs.sample.enable"), hue: 0, font: 1, ascii: false }, 50, 87, 0, 0),
             mk("ok", ElementKind::Button { normal: 247, pressed: 248, action: ButtonAction::Reply, page: 0, id: 0 }, 20, 130, 0, 0),
-            mk("info", ElementKind::Html { text: "<center><b>HTML</b> no gump</center><basefont color=\"#ffd24a\">Texto <i>colorido</i> e <u>sublinhado</u></basefont><br><big>grande</big> <small>pequeno</small>".into(), cliloc: 0, background: true, scrollbar: false }, 20, 165, 260, 60),
-            mk("ok_text", ElementKind::Label { text: "OK".into(), hue: 0, font: 1, ascii: false }, 55, 132, 0, 0),
+            mk("info", ElementKind::Html { text: t!("gs.sample.html"), cliloc: 0, background: true, scrollbar: false }, 20, 165, 260, 60),
+            mk("ok_text", ElementKind::Label { text: t!("gs.sample.ok"), hue: 0, font: 1, ascii: false }, 55, 132, 0, 0),
         ];
         d
     }
@@ -399,7 +399,7 @@ impl GumpStudioTab {
     fn toolbar(&mut self, ui: &mut egui::Ui) {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            ui.strong("🧩 GumpStudio");
+            ui.strong("🛠 GumpStudio");
             ui.label(t!("common.name"));
             ui.add(egui::TextEdit::singleline(&mut self.doc.name).desired_width(120.0));
             ui.label(t!("gs.x"));
@@ -1241,7 +1241,7 @@ impl GumpStudioTab {
                                                 }
                                             }
                                         });
-                                        let lbl = format!("{a} → {b}");
+                                        let lbl = format!("{a} ➡ {b}");
                                         if ui.small_button(lbl).clicked() {
                                             pick_pair = Some((a, b));
                                         }
