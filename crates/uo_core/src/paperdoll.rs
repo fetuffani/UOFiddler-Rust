@@ -72,7 +72,7 @@ const fn l(id: u8, name: &'static str, anim_order: i32, doll_order: i32) -> Laye
 }
 
 /// Wearable layers (UO layer numbers) with the draw orders of the client.
-pub const LAYERS: [LayerInfo; 22] = [
+pub const LAYERS: [LayerInfo; 23] = [
     l(1, "Mão direita (1H)", 23000, 24000),
     l(2, "Mão esquerda (2H / escudo)", 24000, 23000),
     l(3, "Sapatos", 5000, 5000),
@@ -95,6 +95,8 @@ pub const LAYERS: [LayerInfo; 22] = [
     l(21, "Mochila", 22000, 22000),
     l(22, "Túnica externa / robe", 18000, 18000),
     l(24, "Pernas internas", 19000, 19000),
+    // the mount is not part of the paperdoll gump or of the equipment sort: it is drawn under the rider
+    l(25, "Montaria", 0, 0),
 ];
 
 pub fn layer_info(id: u8) -> Option<&'static LayerInfo> {

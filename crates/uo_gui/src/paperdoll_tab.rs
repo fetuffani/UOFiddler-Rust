@@ -7,7 +7,13 @@ use std::collections::{BTreeMap, HashMap};
 use std::time::{Duration, Instant};
 use uo_core::*;
 
-use crate::ACTIONS_HUMAN;
+/// Actions of the people animation (classic numbering of anim.mul, as in ClassicUO's
+/// `PeopleAnimationGroup`); the text is the locale key `paperdoll.act.<n>`.
+const ACTIONS: [u32; 35] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34];
+
+fn action_label(a: u32) -> String {
+    crate::i18n::tr(&format!("paperdoll.act.{a}"))
+}
 
 const WEARABLE: u64 = 1 << 22;
 const PARTIAL_HUE: u64 = 1 << 18;
@@ -27,6 +33,8 @@ pub struct PaperdollData<'a> {
     pub uop_anim: &'a UopAnimationIndex,
     /// body ids that mobtypes.txt classifies as equipment
     pub equipment_bodies: &'a std::collections::HashSet<u32>,
+    /// creature class of every animation body (0 monster, 1 sea, 2 animal, 3 human), for mounts
+    pub anim_types: &'a HashMap<u32, u8>,
     /// art.mul index (item art for the slot view)
     pub art: Option<&'a FileIndex>,
 }
@@ -160,6 +168,7 @@ fn slot_label(layer: u8) -> String {
         21 => t!("paperdoll.slot.21"),
         22 => t!("paperdoll.slot.22"),
         24 => t!("paperdoll.slot.24"),
+        25 => t!("paperdoll.slot.25"),
         _ => "?".to_string(),
     }
 }
@@ -190,6 +199,7 @@ fn layer_label(layer: u8) -> String {
         21 => t!("paperdoll.layer.21"),
         22 => t!("paperdoll.layer.22"),
         24 => t!("paperdoll.layer.24"),
+        25 => t!("paperdoll.layer.25"),
         _ => layer_info(layer).map_or_else(|| "?".to_string(), |l| l.name.to_string()),
     }
 }
@@ -264,12 +274,13 @@ impl PaperdollTab {
             .enumerate()
             .filter_map(|(id, t)| {
                 let emu_layer = emu.get(&(id as u16));
-                if t.anim_id == 0 && t.name.trim().is_empty() && emu_layer.is_none() {
+                let mount = mount_info(id as u16).is_some(); // ClassicUO's mount table
+                if t.anim_id == 0 && t.name.trim().is_empty() && emu_layer.is_none() && !mount {
                     return None;
                 }
                 let flagged = t.flags & WEARABLE != 0 && t.anim_id != 0 && layer_info(t.quality).is_some();
-                let layer = emu_layer.copied().flatten().unwrap_or(if flagged { t.quality } else { 0 });
-                Some(CatalogItem { item_id: id as u16, anim_id: t.anim_id, name: t.name.clone(), name_lc: t.name.to_lowercase(), layer, known: flagged || emu_layer.is_some() })
+                let layer = if mount { MOUNT_LAYER } else { emu_layer.copied().flatten().unwrap_or(if flagged { t.quality } else { 0 }) };
+                Some(CatalogItem { item_id: id as u16, anim_id: t.anim_id, name: t.name.clone(), name_lc: t.name.to_lowercase(), layer, known: flagged || emu_layer.is_some() || mount })
             })
             .collect()
     }
@@ -317,9 +328,9 @@ impl PaperdollTab {
         let mut order: Vec<(&u8, &Equipped)> = self.equipped.iter().collect();
         order.sort_by_key(|(l, _)| layer_info(**l).map_or(0, |i| i.doll_order));
         let exists = |g: u32| gi.is_valid(g as usize);
-        for (_, e) in order {
-            if e.anim_id == 0 {
-                continue; // nothing to draw (the row says "no anim / no gump")
+        for (l, e) in order {
+            if e.anim_id == 0 || *l == MOUNT_LAYER {
+                continue; // nothing to draw (the row says "no anim / no gump"); the mount is not on the paperdoll
             }
             let (gump, ehue) = d.equip_gump.gump_for_anim(self.body.anim_body(), e.anim_id as u32, self.body.female(), exists);
             let Some(mut bmp) = decode_gump_id(gi, gump) else { continue };
@@ -332,8 +343,44 @@ impl PaperdollTab {
         Some((w, h, canvas))
     }
 
+    /// The worn mount as (creature body, rider offset Y): the mount table first, the tiledata
+    /// animation id for mount items that are not in it. (ClassicUO lets the tiledata win, but in the
+    /// reference client the ids of the table are boat parts whose animation field is not a body.)
+    /// Gargoyles do not ride.
+    fn mount_target(&self) -> Option<(u32, i32)> {
+        if matches!(self.body, BodyKind::GargoyleMale | BodyKind::GargoyleFemale) {
+            return None;
+        }
+        let e = self.equipped.get(&MOUNT_LAYER)?;
+        match mount_info(e.item_id) {
+            Some(i) => Some((i.body, i.offset_y)),
+            None if e.anim_id != 0 => Some((e.anim_id as u32, 0)),
+            None => None,
+        }
+    }
+
+    /// Frames of the worn mount for the selected action and direction, with the rider's offset Y
+    /// and the people group the rider must use.
+    fn mount_frames(&self, d: &PaperdollData) -> Option<(Vec<AnimationFrame>, i32, u32)> {
+        let (body, offset) = self.mount_target()?;
+        let rider = rider_group(self.action);
+        let group = mount_group(rider, d.anim_types.get(&body).copied().unwrap_or(0));
+        let mut frames = load_animation_frames(d.resolver, d.mul_anim, d.uop_anim, body, group, self.direction)?;
+        if let Some(e) = self.equipped.get(&MOUNT_LAYER) {
+            if let Some(p) = hue_palette(d.hues, e.hue) {
+                for f in &mut frames {
+                    apply_hue_bytes(&mut f.rgba_data, &p, false);
+                }
+            }
+        }
+        Some((frames, offset, rider))
+    }
+
     fn compose_anim(&self, d: &PaperdollData) -> Vec<Vec<u8>> {
-        let load = |body: u32| load_animation_frames(d.resolver, d.mul_anim, d.uop_anim, body, self.action, self.direction);
+        // on a mount the rider uses the mounted groups; without usable mount frames he stands on the ground
+        let mount = self.mount_frames(d);
+        let action = mount.as_ref().map_or(self.action, |m| m.2);
+        let load = |body: u32| load_animation_frames(d.resolver, d.mul_anim, d.uop_anim, body, action, self.direction);
         let Some(mut body_frames) = load(self.body.anim_body()) else { return Vec::new() };
         if let Some(p) = hue_palette(d.hues, self.skin_hue) {
             for f in &mut body_frames {
@@ -342,11 +389,11 @@ impl PaperdollTab {
         }
         let mut layers: Vec<(i32, Vec<AnimationFrame>)> = Vec::new();
         for (l, e) in &self.equipped {
-            if e.anim_id == 0 {
+            if e.anim_id == 0 || *l == MOUNT_LAYER {
                 continue;
             }
             let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
-            let frames = load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction);
+            let frames = load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, action, self.direction);
             if let Some(mut frames) = frames {
                 if let Some(p) = hue_palette(d.hues, e.hue) {
                     for f in &mut frames {
@@ -358,7 +405,7 @@ impl PaperdollTab {
         }
         layers.sort_by_key(|(o, _)| *o);
 
-        let place = |canvas: &mut Vec<u8>, f: &AnimationFrame| {
+        let place = |canvas: &mut Vec<u8>, f: &AnimationFrame, dy: i32| {
             blit_alpha(
                 canvas,
                 CANVAS.0,
@@ -367,15 +414,20 @@ impl PaperdollTab {
                 f.width as usize,
                 f.height as usize,
                 ANCHOR.0 - f.center_x as i32,
-                ANCHOR.1 - f.center_y as i32 - f.height as i32,
+                ANCHOR.1 - f.center_y as i32 - f.height as i32 + dy,
             );
         };
+        let rider_dy = mount.as_ref().map_or(0, |m| m.1);
         (0..body_frames.len())
             .map(|k| {
                 let mut canvas = vec![0u8; CANVAS.0 * CANVAS.1 * 4];
-                place(&mut canvas, &body_frames[k]);
+                // the mount first (behind), then the rider and what he wears, moved down by the mount's offset
+                if let Some((frames, _, _)) = &mount {
+                    place(&mut canvas, &frames[k % frames.len()], 0);
+                }
+                place(&mut canvas, &body_frames[k], rider_dy);
                 for (_, frames) in &layers {
-                    place(&mut canvas, &frames[k % frames.len()]);
+                    place(&mut canvas, &frames[k % frames.len()], rider_dy);
                 }
                 canvas
             })
@@ -400,8 +452,16 @@ impl PaperdollTab {
             .collect();
         // Items whose animation or gump does not exist in the loaded files (new items on an old client,
         // wrong tiledata): they stay equipped, draw nothing and the layer row says so.
-        let (anim_body, female, action, direction) = (self.body.anim_body(), self.body.female(), self.action, self.direction);
-        for e in self.equipped.values_mut() {
+        let mount = self.mount_frames(d);
+        let action = mount.as_ref().map_or(self.action, |m| m.2);
+        let (anim_body, female, direction) = (self.body.anim_body(), self.body.female(), self.direction);
+        for (layer, e) in self.equipped.iter_mut() {
+            if *layer == MOUNT_LAYER {
+                // drawn under the rider, never on the paperdoll gump
+                e.no_anim = mount.is_none();
+                e.no_gump = false;
+                continue;
+            }
             if e.anim_id == 0 {
                 e.no_anim = true;
                 e.no_gump = true;
@@ -423,6 +483,9 @@ impl PaperdollTab {
             frames = self.anim_tex.len(),
             items = self.equipped.len()
         );
+        if let Some((_, _, rider)) = &mount {
+            self.info.push_str(&format!(" {}", t!("paperdoll.info.mounted", group = rider)));
+        }
         self.dirty = false;
     }
 
@@ -618,10 +681,9 @@ impl PaperdollTab {
             }
         });
         ui.horizontal(|ui| {
-            let cur = ACTIONS_HUMAN.iter().find(|(a, _)| *a == self.action).map_or("?", |(_, n)| *n);
-            egui::ComboBox::from_label(t!("paperdoll.action")).selected_text(format!("{} {}", self.action, cur)).show_ui(ui, |ui| {
-                for (a, n) in ACTIONS_HUMAN.iter() {
-                    if ui.selectable_value(&mut self.action, *a, format!("{} {}", a, n)).clicked() {
+            egui::ComboBox::from_label(t!("paperdoll.action")).selected_text(format!("{} {}", self.action, action_label(self.action))).show_ui(ui, |ui| {
+                for a in ACTIONS {
+                    if ui.selectable_value(&mut self.action, a, format!("{} {}", a, action_label(a))).clicked() {
                         self.dirty = true;
                     }
                 }
@@ -653,7 +715,10 @@ impl PaperdollTab {
                     }
                     let mut remove = false;
                     if let Some(e) = self.equipped.get_mut(&info.id) {
-                        let note = missing_note(e);
+                        let mut note = missing_note(e);
+                        if info.id == MOUNT_LAYER && matches!(self.body, BodyKind::GargoyleMale | BodyKind::GargoyleFemale) {
+                            note = t!("paperdoll.row.no_ride");
+                        }
                         let text = format!("0x{:04X} {}", e.item_id, e.name);
                         if note.is_empty() {
                             ui.label(text);
