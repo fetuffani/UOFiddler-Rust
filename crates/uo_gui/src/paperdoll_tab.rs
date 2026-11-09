@@ -49,16 +49,19 @@ struct CatalogItem {
     item_id: u16,
     anim_id: u16,
     name: String,
-    /// layer the tiledata declares (`quality`) and whether it flags the item as wearable
+    /// lowercase name, for the search
+    name_lc: String,
+    /// layer the emulator scripts give the item, else the one the tiledata declares (`quality`); 0 = none
     layer: u8,
-    wearable: bool,
+    /// known to be wearable: the tiledata flags it (with an animation and a layer) or an emulator lists it
+    known: bool,
 }
 
 /// Small note for an item listed under a layer it was not declared for, "" when it fits.
 fn layer_note(item: &CatalogItem, sel_layer: u8) -> String {
-    if !item.wearable {
+    if !item.known {
         t!("paperdoll.note.not_wearable")
-    } else if item.layer != sel_layer {
+    } else if item.layer != 0 && item.layer != sel_layer {
         t!("paperdoll.note.other_layer", layer = item.layer)
     } else {
         String::new()
@@ -88,11 +91,15 @@ pub struct PaperdollTab {
     playing: bool,
     frame: usize,
     last_tick: Instant,
-    catalog: Option<HashMap<u8, Vec<CatalogItem>>>,
-    /// every item of the tiledata that has a name or an animation id, for the "any layer" list
+    /// every item of the tiledata that has a name or an animation id (or that an emulator lists)
     all_items: Option<Vec<CatalogItem>>,
-    /// list every item under every layer, not only those the tiledata declares for it
+    /// list every item under every layer, not only those known for the selected one
     show_all: bool,
+    /// keep only the items known to be wearable (tiledata flag or emulator list)
+    known_only: bool,
+    /// the filtered list shown under the layers (indices into `all_items`) and what it was built for
+    list: Vec<usize>,
+    list_key: Option<(String, bool, bool, u8)>,
     doll_tex: Option<egui::TextureHandle>,
     anim_tex: Vec<egui::TextureHandle>,
     dirty: bool,
@@ -114,9 +121,11 @@ impl Default for PaperdollTab {
             playing: true,
             frame: 0,
             last_tick: Instant::now(),
-            catalog: None,
             all_items: None,
-            show_all: false,
+            show_all: true,
+            known_only: false,
+            list: Vec::new(),
+            list_key: None,
             doll_tex: None,
             anim_tex: Vec::new(),
             dirty: true,
@@ -245,30 +254,23 @@ pub(crate) fn decode_gump_id(gi: &FileIndex, id: u32) -> Option<GumpBitmap> {
 }
 
 impl PaperdollTab {
-    fn build_catalog(td: &TileDataManager) -> HashMap<u8, Vec<CatalogItem>> {
-        let mut m: HashMap<u8, Vec<CatalogItem>> = HashMap::new();
-        for (id, t) in td.item_tiles.iter().enumerate() {
-            if t.flags & WEARABLE != 0 && t.anim_id != 0 && layer_info(t.quality).is_some() {
-                m.entry(t.quality).or_default().push(CatalogItem {
-                    item_id: id as u16,
-                    anim_id: t.anim_id,
-                    name: t.name.clone(),
-                    layer: t.quality,
-                    wearable: true,
-                });
-            }
-        }
-        m
-    }
-
-    /// Every item that has a name or an animation id. The tiledata's wearable flag and layer are
-    /// not always right (see issue #7), so the user may put any of them on any layer.
+    /// Every item that has a name or an animation id, or that an emulator lists. The tiledata's
+    /// wearable flag and layer are not always right (see issue #7), so the user may put any of them
+    /// on any layer; `known` only says which ones are *believed* wearable.
     fn build_all_items(td: &TileDataManager) -> Vec<CatalogItem> {
+        let emu = emulator_wearables();
         td.item_tiles
             .iter()
             .enumerate()
-            .filter(|(_, t)| t.anim_id != 0 || !t.name.trim().is_empty())
-            .map(|(id, t)| CatalogItem { item_id: id as u16, anim_id: t.anim_id, name: t.name.clone(), layer: t.quality, wearable: t.flags & WEARABLE != 0 })
+            .filter_map(|(id, t)| {
+                let emu_layer = emu.get(&(id as u16));
+                if t.anim_id == 0 && t.name.trim().is_empty() && emu_layer.is_none() {
+                    return None;
+                }
+                let flagged = t.flags & WEARABLE != 0 && t.anim_id != 0 && layer_info(t.quality).is_some();
+                let layer = emu_layer.copied().flatten().unwrap_or(if flagged { t.quality } else { 0 });
+                Some(CatalogItem { item_id: id as u16, anim_id: t.anim_id, name: t.name.clone(), name_lc: t.name.to_lowercase(), layer, known: flagged || emu_layer.is_some() })
+            })
             .collect()
     }
 
@@ -432,8 +434,7 @@ impl PaperdollTab {
             ui.label(t!("paperdoll.need_data"));
             return;
         };
-        if self.catalog.is_none() {
-            self.catalog = Some(Self::build_catalog(d.tiledata));
+        if self.all_items.is_none() {
             self.all_items = Some(Self::build_all_items(d.tiledata));
             // UOFIDDLER_PAPERDOLL=<plate|common|robe>[,<body kind index>] (automated screenshots)
             if let Ok(v) = std::env::var("UOFIDDLER_PAPERDOLL") {
@@ -682,39 +683,46 @@ impl PaperdollTab {
             ui.label("🔍");
             ui.text_edit_singleline(&mut self.search);
         });
-        if ui.checkbox(&mut self.show_all, t!("paperdoll.show_all")).on_hover_text(t!("paperdoll.show_all.tip")).changed() {
-            self.search.clear();
+        ui.checkbox(&mut self.show_all, t!("paperdoll.show_all")).on_hover_text(t!("paperdoll.show_all.tip"));
+        ui.checkbox(&mut self.known_only, t!("paperdoll.known_only")).on_hover_text(t!("paperdoll.known_only.tip"));
+
+        // the filtered list is rebuilt only when something it depends on changes
+        let key = (self.search.to_lowercase(), self.show_all, self.known_only, self.sel_layer);
+        if self.list_key.as_ref() != Some(&key) {
+            let (q, show_all, known_only, layer) = (&key.0, key.1, key.2, key.3);
+            self.list = self
+                .all_items
+                .as_ref()
+                .map(|v| {
+                    v.iter()
+                        .enumerate()
+                        .filter(|(_, i)| (show_all || (i.known && i.layer == layer)) && (!known_only || i.known))
+                        .filter(|(_, i)| q.is_empty() || i.name_lc.contains(q.as_str()) || format!("{:04x}", i.item_id).contains(q.as_str()))
+                        .map(|(n, _)| n)
+                        .collect()
+                })
+                .unwrap_or_default();
+            self.list_key = Some(key);
         }
-        let q = self.search.to_lowercase();
-        let source: Option<&Vec<CatalogItem>> = if self.show_all {
-            self.all_items.as_ref()
-        } else {
-            self.catalog.as_ref().and_then(|c| c.get(&self.sel_layer))
-        };
-        let items: Vec<CatalogItem> = source
-            .map(|v| {
-                v.iter()
-                    .filter(|i| q.is_empty() || i.name.to_lowercase().contains(&q) || format!("{:04x}", i.item_id).contains(&q))
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default();
-        ui.label(t!("paperdoll.items_count", n = items.len()));
+        ui.label(t!("paperdoll.items_count", n = self.list.len()));
         let mut pick = None;
-        egui::ScrollArea::vertical().id_salt("pd_items").auto_shrink([false, false]).show_rows(ui, 20.0, items.len(), |ui, range| {
-            for i in range {
-                let it = &items[i];
-                let sel = self.equipped.get(&self.sel_layer).map_or(false, |e| e.item_id == it.item_id);
-                let mut text = t!("paperdoll.item_row", item = format!("{:04X}", it.item_id), name = it.name, anim = it.anim_id);
-                let note = layer_note(it, self.sel_layer);
-                if !note.is_empty() {
-                    text.push_str(&format!("  · {note}"));
+        if let Some(all) = &self.all_items {
+            let list = &self.list;
+            egui::ScrollArea::vertical().id_salt("pd_items").auto_shrink([false, false]).show_rows(ui, 20.0, list.len(), |ui, range| {
+                for n in range {
+                    let it = &all[list[n]];
+                    let sel = self.equipped.get(&self.sel_layer).map_or(false, |e| e.item_id == it.item_id);
+                    let mut text = t!("paperdoll.item_row", item = format!("{:04X}", it.item_id), name = it.name, anim = it.anim_id);
+                    let note = layer_note(it, self.sel_layer);
+                    if !note.is_empty() {
+                        text.push_str(&format!("  · {note}"));
+                    }
+                    if ui.selectable_label(sel, text).clicked() {
+                        pick = Some(it.item_id);
+                    }
                 }
-                if ui.selectable_label(sel, text).clicked() {
-                    pick = Some(it.item_id);
-                }
-            }
-        });
+            });
+        }
         if let Some(id) = pick {
             let layer = self.sel_layer;
             self.equip(d.tiledata, layer, id);
@@ -726,8 +734,8 @@ impl PaperdollTab {
 mod tests {
     use super::*;
 
-    fn item(layer: u8, wearable: bool) -> CatalogItem {
-        CatalogItem { item_id: 0x2662, anim_id: 734, name: "shirt".into(), layer, wearable }
+    fn item(layer: u8, known: bool) -> CatalogItem {
+        CatalogItem { item_id: 0x2662, anim_id: 734, name: "shirt".into(), name_lc: "shirt".into(), layer, known }
     }
 
     fn worn(no_anim: bool, no_gump: bool) -> Equipped {
@@ -739,6 +747,8 @@ mod tests {
         assert_eq!(layer_note(&item(5, true), 5), "");
         assert!(layer_note(&item(5, true), 3).contains('5'));
         assert!(!layer_note(&item(5, false), 5).is_empty());
+        // a known wearable whose layer nobody names (armor, weapons) is not flagged
+        assert_eq!(layer_note(&item(0, true), 5), "");
     }
 
     #[test]
