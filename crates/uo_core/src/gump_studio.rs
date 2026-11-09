@@ -636,8 +636,9 @@ pub fn is_resizepic_at(id: u32, lists: &ResizepicLists, size_of: impl Fn(u32) ->
     if lists.is_invalid(id) {
         return false;
     }
-    // the manual `valid` list wins over the shape rules (when the nine gumps exist)
-    if lists.is_valid(id) && (0..9).all(|k| size_of(id + k).is_some()) {
+    // the manual `valid` list wins over the shape rules. Only the first piece has to exist: some frames
+    // ship with a piece missing (40353 has eight of nine) and are drawn with that piece left blank.
+    if lists.is_valid(id) && size_of(id).is_some() {
         return true;
     }
     let small = |(w, h): (u32, u32)| w > 0 && h > 0 && w <= 512 && h <= 512;
@@ -1014,6 +1015,16 @@ mod tests {
         for id in [83, 3600, 5100, 5150, 5170, 9380, 9390, 9400, 9450, 9500, 9550, 9568, 30536, 39925, 40000, 40353] {
             assert!(l.is_valid(id) && !l.is_invalid(id), "{id}");
         }
+    }
+
+    #[test]
+    fn a_valid_listed_frame_with_a_missing_piece_is_still_a_resizepic() {
+        let lists = ResizepicLists::parse("valid 40353\n");
+        let size_of = |id: u32| (40353..40361).contains(&id).then_some((20, 20)); // the ninth piece (40361) is missing
+        assert!(is_resizepic_at(40353, &lists, size_of, |_| false));
+        assert!(!is_resizepic_at(40354, &lists, size_of, |_| false), "only listed ids get the pass");
+        let none = |_: u32| None;
+        assert!(!is_resizepic_at(40353, &lists, none, |_| false), "no first piece: not a frame");
     }
 
     #[test]

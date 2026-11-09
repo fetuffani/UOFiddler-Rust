@@ -153,8 +153,11 @@ fn uop_chunks(m: &[u8], path: &Path, map_id: usize) -> Option<Vec<Option<(usize,
     let max_chunks = (MAP_DEFS[map_id].width as usize / 8 * MAP_DEFS[map_id].height as usize / 8)
         .div_ceil(UOP_BLOCKS_PER_CHUNK)
         + 8;
+    // The `x` variants (map0xLegacyMUL.uop) name their entries like the plain file
+    // (`build/map0legacymul/...`), as the clients expect; accept both names.
+    let plain = stem.replacen('x', "", 1);
     let hashes: HashMap<u64, usize> = (0..max_chunks)
-        .map(|i| (hash_file_name(&format!("build/{}/{:08}.dat", stem, i)), i))
+        .flat_map(|i| [stem.as_str(), plain.as_str()].map(|st| (hash_file_name(&format!("build/{}/{:08}.dat", st, i)), i)))
         .collect();
     let mut chunks = vec![None; max_chunks];
     let mut next = u64_at(12)? as usize;
@@ -183,18 +186,20 @@ fn uop_chunks(m: &[u8], path: &Path, map_id: usize) -> Option<Vec<Option<(usize,
     Some(chunks)
 }
 
-/// Finds the files of a facet: `mapN.mul` first, then `mapNLegacyMUL.uop`, then the `x`
-/// variants (`mapNxLegacyMUL.uop`, `staidxNx.mul`) shipped for some facets. `find` resolves a
-/// file name inside the client folder.
+/// Finds the files of a facet: `mapNLegacyMUL.uop` first (what the clients read, and what their
+/// patches update), then `mapN.mul`, then the `x` variants (`mapNxLegacyMUL.uop`, `mapNx.mul`,
+/// `staidxNx.mul`) shipped for some facets. The UOP goes first because a folder that went through
+/// the UOP clients often keeps an old `mapN.mul`: reading it shows a stale map under the statics,
+/// which are updated in place (issue #58). `find` resolves a file name inside the client folder.
 pub fn map_files(
     map_id: usize,
     find: impl Fn(&str) -> Option<PathBuf>,
 ) -> (Option<PathBuf>, Option<PathBuf>, Option<PathBuf>) {
     let map = [
-        format!("map{}.mul", map_id),
         format!("map{}LegacyMUL.uop", map_id),
-        format!("map{}x.mul", map_id),
+        format!("map{}.mul", map_id),
         format!("map{}xLegacyMUL.uop", map_id),
+        format!("map{}x.mul", map_id),
     ]
     .iter()
     .find_map(|n| find(n));
@@ -313,7 +318,8 @@ impl MapManager {
         }
     }
 
-    /// Loads the optional patch files of a facet (mapdif / stadif). Missing files are fine.
+    /// Loads the optional patch files of a facet (mapdif / stadif). Missing files are fine, and a UOP
+    /// facet takes none.
     pub fn load_diff(
         &mut self,
         map_id: usize,
@@ -324,6 +330,12 @@ impl MapManager {
         stadifl: Option<PathBuf>,
     ) {
         if map_id >= 6 {
+            return;
+        }
+        // The clients read the patches only on a MUL installation: with a UOP facet the mapdif / stadif
+        // files that may still be in the folder are old leftovers and would corrupt the current map.
+        if self.map_mmaps[map_id].as_ref().is_some_and(LandFile::is_uop) {
+            self.diffs[map_id] = MapDiff::default();
             return;
         }
         let d = &mut self.diffs[map_id];
@@ -478,5 +490,39 @@ impl MapManager {
             }
         }
         Some((out_w, out_h, rgba))
+    }
+}
+
+#[cfg(test)]
+mod file_choice_tests {
+    use super::*;
+
+    fn pick(present: &[&str], map_id: usize) -> Option<String> {
+        let (map, _, _) = map_files(map_id, |n| present.contains(&n).then(|| PathBuf::from(n)));
+        map.map(|p| p.to_string_lossy().into_owned())
+    }
+
+    #[test]
+    fn an_x_variant_with_plain_entry_names_loads() {
+        use crate::uop_convert::write_uop;
+        let dir = std::env::temp_dir().join(format!("uomapx_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let entries = vec![("build/map4legacymul/00000000.dat".to_string(), vec![0u8; LAND_BLOCK_BYTES * 10])];
+        for name in ["map4xLegacyMUL.uop", "map4LegacyMUL.uop"] {
+            write_uop(&dir.join(name), &entries).unwrap();
+            let land = LandFile::open(&dir.join(name), 4).expect("opens");
+            assert!(land.is_uop());
+            assert_eq!(land.block_count(), 10, "{name}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_uop_wins_over_an_old_mul() {
+        assert_eq!(pick(&["map0.mul", "map0LegacyMUL.uop", "map0xLegacyMUL.uop"], 0).as_deref(), Some("map0LegacyMUL.uop"));
+        assert_eq!(pick(&["map0.mul"], 0).as_deref(), Some("map0.mul"));
+        assert_eq!(pick(&["map2.mul", "map2x.mul"], 2).as_deref(), Some("map2.mul"));
+        assert_eq!(pick(&["map1xLegacyMUL.uop", "map1x.mul"], 1).as_deref(), Some("map1xLegacyMUL.uop"));
+        assert_eq!(pick(&[], 0), None);
     }
 }
