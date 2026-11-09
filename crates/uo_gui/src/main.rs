@@ -580,6 +580,8 @@ pub struct UoFiddlerApp {
     // Animations Tab state
     anim_mode_enhanced: bool,
     anim_body_defs: Vec<AnimationDef>,
+    /// animation body -> creature class (mobtypes.txt), for mounts in the paperdoll
+    anim_types: HashMap<u32, u8>,
     anim_search: String,
     anim_category_filter: AnimCategoryFilter,
     anim_body: u32,
@@ -700,6 +702,7 @@ impl Default for UoFiddlerApp {
             .unwrap_or_default();
         let hs = fm.high_seas;
         let anim_body_defs = load_animation_defs(&fm);
+        let anim_types: HashMap<u32, u8> = anim_body_defs.iter().map(|d| (d.body, d.anim_type)).collect();
         let uop_multis = if let Some(p) = fm.get_file_path("MultiCollection.uop") {
             load_uop_multis(p)
         } else {
@@ -789,6 +792,7 @@ impl Default for UoFiddlerApp {
             land_thumb_cache: HashMap::new(),
             anim_mode_enhanced: false,
             anim_body_defs,
+            anim_types,
             anim_search: String::new(),
             anim_category_filter: AnimCategoryFilter::All,
             anim_body: 9,   // Daemon
@@ -2493,6 +2497,7 @@ impl eframe::App for UoFiddlerApp {
                     mul_anim: &self.anim_indices,
                     uop_anim: &self.uop_anim_index,
                     equipment_bodies: &self.equipment_bodies,
+                    anim_types: &self.anim_types,
                     art: self.art_index.as_ref(),
                 });
                 self.paperdoll_tab.show(ui, ctx, data.as_ref());
