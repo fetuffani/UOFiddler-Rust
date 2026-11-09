@@ -38,6 +38,10 @@ struct Equipped {
     hue: u32,
     partial: bool,
     name: String,
+    /// no animation frames / no paperdoll gump for this item in the loaded files (set by `rebuild`);
+    /// such an item is still worn, it just draws nothing
+    no_anim: bool,
+    no_gump: bool,
 }
 
 #[derive(Clone)]
@@ -45,6 +49,32 @@ struct CatalogItem {
     item_id: u16,
     anim_id: u16,
     name: String,
+    /// layer the tiledata declares (`quality`) and whether it flags the item as wearable
+    layer: u8,
+    wearable: bool,
+}
+
+/// Small note for an item listed under a layer it was not declared for, "" when it fits.
+fn layer_note(item: &CatalogItem, sel_layer: u8) -> String {
+    if !item.wearable {
+        t!("paperdoll.note.not_wearable")
+    } else if item.layer != sel_layer {
+        t!("paperdoll.note.other_layer", layer = item.layer)
+    } else {
+        String::new()
+    }
+}
+
+/// "no anim / no gump" for an equipped item, "" when it has both.
+fn missing_note(e: &Equipped) -> String {
+    let mut parts = Vec::new();
+    if e.no_anim {
+        parts.push(t!("paperdoll.row.no_anim"));
+    }
+    if e.no_gump {
+        parts.push(t!("paperdoll.row.no_gump"));
+    }
+    parts.join(" / ")
 }
 
 pub struct PaperdollTab {
@@ -59,12 +89,14 @@ pub struct PaperdollTab {
     frame: usize,
     last_tick: Instant,
     catalog: Option<HashMap<u8, Vec<CatalogItem>>>,
+    /// every item of the tiledata that has a name or an animation id, for the "any layer" list
+    all_items: Option<Vec<CatalogItem>>,
+    /// list every item under every layer, not only those the tiledata declares for it
+    show_all: bool,
     doll_tex: Option<egui::TextureHandle>,
     anim_tex: Vec<egui::TextureHandle>,
     dirty: bool,
     info: String,
-    /// equipped items that have no animation / gump in the loaded client files
-    warn: String,
     scale: f32,
     slot_tex: HashMap<(u16, u32, bool), Option<egui::TextureHandle>>,
 }
@@ -83,11 +115,12 @@ impl Default for PaperdollTab {
             frame: 0,
             last_tick: Instant::now(),
             catalog: None,
+            all_items: None,
+            show_all: false,
             doll_tex: None,
             anim_tex: Vec::new(),
             dirty: true,
             info: String::new(),
-            warn: String::new(),
             scale: 1.0,
             slot_tex: HashMap::new(),
         }
@@ -220,27 +253,40 @@ impl PaperdollTab {
                     item_id: id as u16,
                     anim_id: t.anim_id,
                     name: t.name.clone(),
+                    layer: t.quality,
+                    wearable: true,
                 });
             }
         }
         m
     }
 
+    /// Every item that has a name or an animation id. The tiledata's wearable flag and layer are
+    /// not always right (see issue #7), so the user may put any of them on any layer.
+    fn build_all_items(td: &TileDataManager) -> Vec<CatalogItem> {
+        td.item_tiles
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.anim_id != 0 || !t.name.trim().is_empty())
+            .map(|(id, t)| CatalogItem { item_id: id as u16, anim_id: t.anim_id, name: t.name.clone(), layer: t.quality, wearable: t.flags & WEARABLE != 0 })
+            .collect()
+    }
+
     fn equip(&mut self, td: &TileDataManager, layer: u8, item_id: u16) {
         if let Some(t) = td.item_tiles.get(item_id as usize) {
-            if t.anim_id != 0 {
-                self.equipped.insert(
-                    layer,
-                    Equipped {
-                        item_id,
-                        anim_id: t.anim_id,
-                        hue: 0,
-                        partial: t.flags & PARTIAL_HUE != 0,
-                        name: t.name.clone(),
-                    },
-                );
-                self.dirty = true;
-            }
+            self.equipped.insert(
+                layer,
+                Equipped {
+                    item_id,
+                    anim_id: t.anim_id,
+                    hue: 0,
+                    partial: t.flags & PARTIAL_HUE != 0,
+                    name: t.name.clone(),
+                    no_anim: false,
+                    no_gump: false,
+                },
+            );
+            self.dirty = true;
         }
     }
 
@@ -270,6 +316,9 @@ impl PaperdollTab {
         order.sort_by_key(|(l, _)| layer_info(**l).map_or(0, |i| i.doll_order));
         let exists = |g: u32| gi.is_valid(g as usize);
         for (_, e) in order {
+            if e.anim_id == 0 {
+                continue; // nothing to draw (the row says "no anim / no gump")
+            }
             let (gump, ehue) = d.equip_gump.gump_for_anim(self.body.anim_body(), e.anim_id as u32, self.body.female(), exists);
             let Some(mut bmp) = decode_gump_id(gi, gump) else { continue };
             let hue = if e.hue != 0 { e.hue } else { ehue.max(0) as u32 };
@@ -291,6 +340,9 @@ impl PaperdollTab {
         }
         let mut layers: Vec<(i32, Vec<AnimationFrame>)> = Vec::new();
         for (l, e) in &self.equipped {
+            if e.anim_id == 0 {
+                continue;
+            }
             let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
             let frames = load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction);
             if let Some(mut frames) = frames {
@@ -344,24 +396,20 @@ impl PaperdollTab {
                 )
             })
             .collect();
-        // Items whose animation or gump does not exist in the loaded files (new items on an old client)
-        let (mut no_anim, mut no_gump) = (Vec::new(), Vec::new());
-        for e in self.equipped.values() {
-            let id = d.equip_gump.convert_anim(self.body.anim_body(), e.anim_id as u32);
-            if load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, self.action, self.direction).is_none() {
-                no_anim.push(format!("0x{:04X}", e.item_id));
+        // Items whose animation or gump does not exist in the loaded files (new items on an old client,
+        // wrong tiledata): they stay equipped, draw nothing and the layer row says so.
+        let (anim_body, female, action, direction) = (self.body.anim_body(), self.body.female(), self.action, self.direction);
+        for e in self.equipped.values_mut() {
+            if e.anim_id == 0 {
+                e.no_anim = true;
+                e.no_gump = true;
+                continue;
             }
-            let (g, _) = d.equip_gump.gump_for_anim(self.body.anim_body(), e.anim_id as u32, self.body.female(), |g| d.gump_index.map_or(false, |gi| gi.is_valid(g as usize)));
-            if !d.gump_index.map_or(false, |gi| gi.is_valid(g as usize)) {
-                no_gump.push(format!("0x{:04X}", e.item_id));
-            }
-        }
-        self.warn = String::new();
-        if !no_anim.is_empty() {
-            self.warn.push_str(&t!("paperdoll.warn.no_anim", items = no_anim.join(", ")));
-        }
-        if !no_gump.is_empty() {
-            self.warn.push_str(&t!("paperdoll.warn.no_gump", items = no_gump.join(", ")));
+            let id = d.equip_gump.convert_anim(anim_body, e.anim_id as u32);
+            e.no_anim = load_equipment_frames(d.mul_anim, d.uop_anim, d.equipment_bodies.contains(&id), id, action, direction).is_none();
+            let exists = |g: u32| d.gump_index.map_or(false, |gi| gi.is_valid(g as usize));
+            let (g, _) = d.equip_gump.gump_for_anim(anim_body, e.anim_id as u32, female, exists);
+            e.no_gump = !exists(g);
         }
         self.frame = 0;
         self.info = t!(
@@ -386,6 +434,7 @@ impl PaperdollTab {
         };
         if self.catalog.is_none() {
             self.catalog = Some(Self::build_catalog(d.tiledata));
+            self.all_items = Some(Self::build_all_items(d.tiledata));
             // UOFIDDLER_PAPERDOLL=<plate|common|robe>[,<body kind index>] (automated screenshots)
             if let Ok(v) = std::env::var("UOFIDDLER_PAPERDOLL") {
                 let mut p = v.split(',');
@@ -424,9 +473,6 @@ impl PaperdollTab {
                 self.show_slots(ui, ctx, d);
             });
             ui.label(&self.info);
-            if !self.warn.is_empty() {
-                ui.colored_label(egui::Color32::from_rgb(230, 170, 60), &self.warn);
-            }
             ui.add(egui::Slider::new(&mut self.scale, 0.5..=2.0).text(t!("paperdoll.scale")));
             ui.separator();
             ui.columns(2, |cols| {
@@ -606,7 +652,15 @@ impl PaperdollTab {
                     }
                     let mut remove = false;
                     if let Some(e) = self.equipped.get_mut(&info.id) {
-                        ui.label(format!("0x{:04X} {}", e.item_id, e.name));
+                        let note = missing_note(e);
+                        let text = format!("0x{:04X} {}", e.item_id, e.name);
+                        if note.is_empty() {
+                            ui.label(text);
+                        } else {
+                            let red = egui::Color32::from_rgb(235, 90, 90);
+                            ui.colored_label(red, text);
+                            ui.label(egui::RichText::new(format!("({note})")).small().color(red));
+                        }
                         if ui.add(egui::DragValue::new(&mut e.hue).range(0..=2999).prefix("hue ")).changed() {
                             self.dirty = true;
                         }
@@ -628,11 +682,16 @@ impl PaperdollTab {
             ui.label("🔍");
             ui.text_edit_singleline(&mut self.search);
         });
+        if ui.checkbox(&mut self.show_all, t!("paperdoll.show_all")).on_hover_text(t!("paperdoll.show_all.tip")).changed() {
+            self.search.clear();
+        }
         let q = self.search.to_lowercase();
-        let items: Vec<CatalogItem> = self
-            .catalog
-            .as_ref()
-            .and_then(|c| c.get(&self.sel_layer))
+        let source: Option<&Vec<CatalogItem>> = if self.show_all {
+            self.all_items.as_ref()
+        } else {
+            self.catalog.as_ref().and_then(|c| c.get(&self.sel_layer))
+        };
+        let items: Vec<CatalogItem> = source
             .map(|v| {
                 v.iter()
                     .filter(|i| q.is_empty() || i.name.to_lowercase().contains(&q) || format!("{:04x}", i.item_id).contains(&q))
@@ -646,7 +705,12 @@ impl PaperdollTab {
             for i in range {
                 let it = &items[i];
                 let sel = self.equipped.get(&self.sel_layer).map_or(false, |e| e.item_id == it.item_id);
-                if ui.selectable_label(sel, t!("paperdoll.item_row", item = format!("{:04X}", it.item_id), name = it.name, anim = it.anim_id)).clicked() {
+                let mut text = t!("paperdoll.item_row", item = format!("{:04X}", it.item_id), name = it.name, anim = it.anim_id);
+                let note = layer_note(it, self.sel_layer);
+                if !note.is_empty() {
+                    text.push_str(&format!("  · {note}"));
+                }
+                if ui.selectable_label(sel, text).clicked() {
                     pick = Some(it.item_id);
                 }
             }
@@ -655,5 +719,33 @@ impl PaperdollTab {
             let layer = self.sel_layer;
             self.equip(d.tiledata, layer, id);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item(layer: u8, wearable: bool) -> CatalogItem {
+        CatalogItem { item_id: 0x2662, anim_id: 734, name: "shirt".into(), layer, wearable }
+    }
+
+    fn worn(no_anim: bool, no_gump: bool) -> Equipped {
+        Equipped { item_id: 0x2662, anim_id: 734, hue: 0, partial: false, name: "shirt".into(), no_anim, no_gump }
+    }
+
+    #[test]
+    fn items_under_another_layer_or_not_wearable_get_a_note() {
+        assert_eq!(layer_note(&item(5, true), 5), "");
+        assert!(layer_note(&item(5, true), 3).contains('5'));
+        assert!(!layer_note(&item(5, false), 5).is_empty());
+    }
+
+    #[test]
+    fn missing_note_names_what_is_missing() {
+        assert_eq!(missing_note(&worn(false, false)), "");
+        assert_eq!(missing_note(&worn(true, false)), "no anim");
+        assert_eq!(missing_note(&worn(false, true)), "no gump");
+        assert_eq!(missing_note(&worn(true, true)), "no anim / no gump");
     }
 }
