@@ -22,6 +22,7 @@ pub mod maps;
 pub mod multimap;
 pub mod multis;
 pub mod mythic;
+pub mod iso_order;
 pub mod mounts;
 pub mod paperdoll;
 pub mod wearables;

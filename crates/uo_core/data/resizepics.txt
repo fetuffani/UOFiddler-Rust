@@ -5,6 +5,22 @@
 # ~/.config/uofiddler/gumpstudio_resizepics.txt (merged at run time, no rebuild needed).
 
 valid 83         # confirmed by the project owner; all nine pieces are 16x16 so the proportion rule cannot recognise it
+# confirmed by the project owner (issue #57); they only count when the nine gumps exist in the client
+valid 3600
+valid 5100
+valid 5150
+valid 5170
+valid 9380
+valid 9390
+valid 9400
+valid 9450
+valid 9500
+valid 9550
+valid 9568
+valid 30536
+valid 39925
+valid 40000
+valid 40353
 
 invalid 1423
 invalid 1500

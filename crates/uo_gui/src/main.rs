@@ -1556,6 +1556,9 @@ impl UoFiddlerApp {
                 }
             }
             None
+        }, |item_id| {
+            // flags and height of the tile: the draw order of a multi depends on them
+            self.tiledata.as_ref().and_then(|t| t.item_tiles.get(item_id as usize)).map_or((0, 0), |t| (t.flags, t.height))
         });
 
         if let Some(bmp) = rendered {
@@ -5238,6 +5241,7 @@ impl UoFiddlerApp {
                 tiledata: self.tiledata.as_ref(),
                 hues: self.hues.as_ref(),
                 radar: self.radar_col.as_ref(),
+                use_diff: false,
             };
             self.map_panel.editor_ui(ui, &mut res, self.map_id, &mut self.map_x, &mut self.map_y);
             return;
@@ -5258,6 +5262,7 @@ impl UoFiddlerApp {
                 tiledata: self.tiledata.as_ref(),
                 hues: self.hues.as_ref(),
                 radar: self.radar_col.as_ref(),
+                use_diff: self.map_use_diff,
             };
             self.map_panel.show(ui, &mut res, self.map_id, &mut self.map_x, &mut self.map_y);
             return;

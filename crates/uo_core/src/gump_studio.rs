@@ -1009,6 +1009,28 @@ mod tests {
     }
 
     #[test]
+    fn the_owner_confirmed_resizepics_are_in_the_builtin_list() {
+        let l = ResizepicLists::builtin();
+        for id in [83, 3600, 5100, 5150, 5170, 9380, 9390, 9400, 9450, 9500, 9550, 9568, 30536, 39925, 40000, 40353] {
+            assert!(l.is_valid(id) && !l.is_invalid(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_blank_piece_does_not_hide_the_frame() {
+        let solid = |w: u32, h: u32| GumpBitmap { width: w, height: h, rgba: [200u8, 100, 50, 255].repeat((w * h) as usize) };
+        let blank = || GumpBitmap { width: 0, height: 0, rgba: Vec::new() };
+        // nine pieces, the centre one is missing
+        let parts: Vec<GumpBitmap> = (0..9).map(|i| if i == 4 { blank() } else { solid(4, 4) }).collect();
+        let out = compose_resizepic(&parts, 20, 20).expect("frame");
+        assert_eq!((out.width, out.height), (20, 20));
+        let alpha = |x: usize, y: usize| out.rgba[(y * 20 + x) * 4 + 3];
+        assert_eq!(alpha(0, 0), 255, "corner drawn");
+        assert_eq!(alpha(10, 0), 255, "top edge drawn");
+        assert_eq!(alpha(10, 10), 0, "the missing centre stays empty");
+    }
+
+    #[test]
     fn seams_tell_tiles_from_picture_pieces() {
         let flat = |v: u8| GumpBitmap { width: 6, height: 6, rgba: vec![v; 6 * 6 * 4] }; // opaque grey (alpha = v)
         let gradient = GumpBitmap { width: 6, height: 6, rgba: (0..6 * 6 * 4).map(|i| if (i / 4) % 6 < 3 { 0 } else { 255 }).collect() };

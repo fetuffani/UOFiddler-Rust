@@ -183,23 +183,24 @@ impl MultiStructure {
 
     /// Renders the multi structure into a newly allocated RGBA bitmap with isometric projection.
     /// `get_art`: Callback to fetch static art item by ID.
-    pub fn render_isometric<F>(&self, max_z_cutoff: i16, mut get_art: F) -> Option<ArtBitmap>
+    /// `tile_info`: Callback with the tiledata (flags, height) of an item, for the draw order.
+    pub fn render_isometric<F, T>(&self, max_z_cutoff: i16, mut get_art: F, tile_info: T) -> Option<ArtBitmap>
     where
         F: FnMut(u16) -> Option<ArtBitmap>,
+        T: Fn(u16) -> (u64, u8),
     {
         if self.components.is_empty() {
             return None;
         }
 
         let mut sorted = self.components.clone();
-        // Depth sorting: Z first, then (X + Y), then X
-        sorted.sort_by_key(|c| {
-            (
-                c.offset_z,
-                (c.offset_x as i32) + (c.offset_y as i32),
-                c.offset_x,
-            )
-        });
+        // Draw order of the client: the diagonal (X + Y) first, the height only as a priority on the
+        // tile (the same rule as the map view). The sort is stable, so equal keys keep file order.
+        let key = |c: &MultiComponent| {
+            let (f, h) = tile_info(c.item_id);
+            crate::iso_order::static_depth(c.offset_x as i32, c.offset_y as i32, c.offset_z as i32, f, h)
+        };
+        sorted.sort_by(|a, b| key(a).partial_cmp(&key(b)).unwrap_or(std::cmp::Ordering::Equal));
 
         struct DrawItem {
             art: ArtBitmap,
@@ -585,5 +586,38 @@ pub fn detect_multi_record_size(index: &crate::FileIndex) -> usize {
         (false, true) => 12,
         // fully ambiguous or inconsistent: High Seas (16) is the format of every modern client
         _ => 16,
+    }
+}
+
+#[cfg(test)]
+mod render_tests {
+    use super::*;
+
+    fn comp(id: u16, x: i16, y: i16, z: i16) -> MultiComponent {
+        MultiComponent { item_id: id, offset_x: x, offset_y: y, offset_z: z, flags: 0, unk1: 0 }
+    }
+
+    /// A tall wall in front must be drawn over a higher floor piece that is farther back: the draw
+    /// order is the diagonal first and the height only a priority (it used to be the height first).
+    #[test]
+    fn a_near_wall_is_drawn_over_a_far_floor_that_is_higher() {
+        let solid = |c: [u8; 4]| ArtBitmap { width: 44, height: 200, rgba: c.repeat(44 * 200) };
+        let s = MultiStructure {
+            multi_id: 1,
+            components: vec![comp(1, 0, 0, 20), comp(2, 1, 0, 0)], // far + high, near + low
+            min_x: 0,
+            max_x: 1,
+            min_y: 0,
+            max_y: 0,
+            min_z: 0,
+            max_z: 20,
+        };
+        let bmp = s
+            .render_isometric(127, |id| Some(solid(if id == 1 { [255, 0, 0, 255] } else { [0, 0, 255, 255] })), |_| (0, 0))
+            .expect("rendered");
+        // world (10, -130) is covered by both pieces: canvas = world + (22 + 10, 280 + 10)
+        let (cx, cy) = (42usize, 160usize);
+        let p = &bmp.rgba[(cy * bmp.width as usize + cx) * 4..][..4];
+        assert_eq!(p, [0, 0, 255, 255], "the near wall (blue) is on top");
     }
 }

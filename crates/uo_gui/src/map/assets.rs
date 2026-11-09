@@ -5,7 +5,7 @@ use super::atlas::Image;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use uo_core::map_edit::{read_block, StaticItem};
+use uo_core::map_edit::{read_block_with, StaticItem};
 use uo_core::{
     apply_hue_bytes, decode_land, decode_static, decode_texture, FileIndex, HuesManager,
     ItemTileData, MapBlock, MapEdits, MapManager, TileDataManager, MAP_DEFS,
@@ -21,6 +21,8 @@ pub struct MapAssets<'a> {
     pub textures: Option<&'a FileIndex>,
     pub tiledata: Option<&'a TileDataManager>,
     pub hues: Option<&'a HuesManager>,
+    /// Show the mapdif / stadif patches. Only the viewer asks for them; the editor works on the base map.
+    pub use_diff: bool,
     /// Blocks already read this frame (the assets live for one frame, so this never goes stale).
     pub cache: RefCell<HashMap<(i32, i32), Option<Rc<MapBlock>>>>,
 }
@@ -47,7 +49,7 @@ impl<'a> MapAssets<'a> {
         if let Some(known) = self.cache.borrow().get(&(bx, by)) {
             return known.clone();
         }
-        let block = read_block(self.maps, self.map_id, bx as u32, by as u32).map(|mut b| {
+        let block = read_block_with(self.maps, self.map_id, bx as u32, by as u32, self.use_diff).map(|mut b| {
             self.edits.apply(&mut b);
             Rc::new(b)
         });
@@ -75,7 +77,7 @@ impl<'a> MapAssets<'a> {
         if bx < 0 || by < 0 {
             return None;
         }
-        read_block(self.maps, self.map_id, bx as u32, by as u32)
+        read_block_with(self.maps, self.map_id, bx as u32, by as u32, self.use_diff)
     }
 
     pub fn item(&self, graphic: u16) -> Option<&'a ItemTileData> {
@@ -112,13 +114,20 @@ impl<'a> MapAssets<'a> {
             .map_or("", |t| t.name.as_str())
     }
 
+    /// The 44x44 art of a land tile. A tile whose art is missing, transparent or pure black (the
+    /// "void" tiles such as 0x0244, which the client shows as black) is drawn as a dark diamond so the
+    /// ground can be seen when editing, instead of statics floating over nothing.
     pub fn land_image(&self, graphic: u16) -> Option<Image> {
-        let bmp = decode_land(&self.art?.get_data(graphic as usize)?)?;
-        Some(Image {
-            width: bmp.width as usize,
-            height: bmp.height as usize,
-            rgba: bmp.rgba,
-        })
+        let art = self.art?;
+        let bmp = art.get_data(graphic as usize).and_then(|d| decode_land(&d));
+        match bmp {
+            Some(b) if has_visible_pixels(&b.rgba) => Some(Image {
+                width: b.width as usize,
+                height: b.height as usize,
+                rgba: b.rgba,
+            }),
+            _ => Some(void_land_image()),
+        }
     }
 
     pub fn static_image(&self, graphic: u16, hue: u16) -> Option<Image> {
@@ -177,5 +186,51 @@ impl<'b, 'a> Blocks<'b, 'a> {
             Some(b) => b.statics_at(x, y).copied().collect(),
             None => Vec::new(),
         }
+    }
+}
+
+/// True when some pixel is drawn and not black.
+fn has_visible_pixels(rgba: &[u8]) -> bool {
+    rgba.chunks_exact(4).any(|p| p[3] != 0 && (p[0] | p[1] | p[2]) != 0)
+}
+
+/// Colour of the stand-in for void land (art missing or fully transparent).
+const VOID_LAND: [u8; 4] = [38, 40, 50, 255];
+
+/// A 44x44 diamond like a land tile's art, filled with the void colour.
+pub fn void_land_image() -> Image {
+    const N: usize = 44;
+    let mut rgba = vec![0u8; N * N * 4];
+    for y in 0..N {
+        let half = if y < N / 2 { y + 1 } else { N - y };
+        for x in (N / 2 - half)..(N / 2 + half) {
+            rgba[(y * N + x) * 4..(y * N + x) * 4 + 4].copy_from_slice(&VOID_LAND);
+        }
+    }
+    Image { width: N, height: N, rgba }
+}
+
+#[cfg(test)]
+mod void_tests {
+    use super::*;
+
+    #[test]
+    fn black_or_transparent_art_counts_as_void() {
+        assert!(!has_visible_pixels(&[0, 0, 0, 255].repeat(10)), "opaque black");
+        assert!(!has_visible_pixels(&[9, 9, 9, 0].repeat(10)), "transparent");
+        assert!(has_visible_pixels(&[0, 0, 1, 255]));
+    }
+
+    #[test]
+    fn void_land_is_a_diamond() {
+        let img = void_land_image();
+        let alpha = |x: usize, y: usize| img.rgba[(y * 44 + x) * 4 + 3];
+        assert_eq!((img.width, img.height), (44, 44));
+        assert_eq!(alpha(22, 22), 255, "centre");
+        assert_eq!(alpha(0, 0), 0, "corner");
+        assert_eq!(alpha(43, 43), 0, "corner");
+        assert_eq!(alpha(22, 0), 255, "top point");
+        let filled = img.rgba.chunks_exact(4).filter(|p| p[3] != 0).count();
+        assert_eq!(filled, 2 * (1..=22).sum::<usize>() * 2, "a 44x44 diamond");
     }
 }

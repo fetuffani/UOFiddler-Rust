@@ -108,6 +108,9 @@ pub struct PaperdollTab {
     /// the filtered list shown under the layers (indices into `all_items`) and what it was built for
     list: Vec<usize>,
     list_key: Option<(String, bool, bool, u8)>,
+    /// rows of the list drawn last frame (to scroll only when the arrows leave them) and the row to bring into view
+    list_view: std::ops::Range<usize>,
+    scroll_to: Option<usize>,
     doll_tex: Option<egui::TextureHandle>,
     anim_tex: Vec<egui::TextureHandle>,
     dirty: bool,
@@ -134,6 +137,8 @@ impl Default for PaperdollTab {
             known_only: false,
             list: Vec::new(),
             list_key: None,
+            list_view: 0..0,
+            scroll_to: None,
             doll_tex: None,
             anim_tex: Vec::new(),
             dirty: true,
@@ -751,6 +756,18 @@ impl PaperdollTab {
         ui.checkbox(&mut self.show_all, t!("paperdoll.show_all")).on_hover_text(t!("paperdoll.show_all.tip"));
         ui.checkbox(&mut self.known_only, t!("paperdoll.known_only")).on_hover_text(t!("paperdoll.known_only.tip"));
 
+        // arrows: left / right change the layer, up / down walk the list and wear the item (not while typing)
+        let (up, down, left, right) = if ui.ctx().wants_keyboard_input() {
+            (false, false, false, false)
+        } else {
+            ui.ctx().input(|i| (i.key_pressed(egui::Key::ArrowUp), i.key_pressed(egui::Key::ArrowDown), i.key_pressed(egui::Key::ArrowLeft), i.key_pressed(egui::Key::ArrowRight)))
+        };
+        if left || right {
+            let at = LAYERS.iter().position(|l| l.id == self.sel_layer).unwrap_or(0);
+            let to = if left { at.saturating_sub(1) } else { (at + 1).min(LAYERS.len() - 1) };
+            self.sel_layer = LAYERS[to].id;
+        }
+
         // the filtered list is rebuilt only when something it depends on changes
         let key = (self.search.to_lowercase(), self.show_all, self.known_only, self.sel_layer);
         if self.list_key.as_ref() != Some(&key) {
@@ -771,9 +788,36 @@ impl PaperdollTab {
         }
         ui.label(t!("paperdoll.items_count", n = self.list.len()));
         let mut pick = None;
+        if (up || down) && !self.list.is_empty() {
+            if let Some(all) = &self.all_items {
+                let worn = self.equipped.get(&self.sel_layer).map(|e| e.item_id);
+                let at = worn.and_then(|id| self.list.iter().position(|&n| all[n].item_id == id));
+                let to = match (at, up) {
+                    (None, true) => self.list.len() - 1,
+                    (None, false) => 0,
+                    (Some(a), true) => a.saturating_sub(1),
+                    (Some(a), false) => (a + 1).min(self.list.len() - 1),
+                };
+                pick = Some(all[self.list[to]].item_id);
+                self.scroll_to = Some(to);
+            }
+        }
+        let mut shown = self.list_view.clone();
         if let Some(all) = &self.all_items {
             let list = &self.list;
-            egui::ScrollArea::vertical().id_salt("pd_items").auto_shrink([false, false]).show_rows(ui, 20.0, list.len(), |ui, range| {
+            let step = 20.0 + ui.spacing().item_spacing.y;
+            let mut area = egui::ScrollArea::vertical().id_salt("pd_items").auto_shrink([false, false]);
+            if let Some(n) = self.scroll_to.take() {
+                // move only when the row is outside the rows on screen, keeping a row of context
+                let rows = shown.len().max(3);
+                if n < shown.start {
+                    area = area.vertical_scroll_offset(n.saturating_sub(1) as f32 * step);
+                } else if n + 1 >= shown.end {
+                    area = area.vertical_scroll_offset((n + 2).saturating_sub(rows) as f32 * step);
+                }
+            }
+            area.show_rows(ui, 20.0, list.len(), |ui, range| {
+                shown = range.clone();
                 for n in range {
                     let it = &all[list[n]];
                     let sel = self.equipped.get(&self.sel_layer).map_or(false, |e| e.item_id == it.item_id);
@@ -788,6 +832,7 @@ impl PaperdollTab {
                 }
             });
         }
+        self.list_view = shown;
         if let Some(id) = pick {
             let layer = self.sel_layer;
             self.equip(d.tiledata, layer, id);
