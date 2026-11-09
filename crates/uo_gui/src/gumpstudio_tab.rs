@@ -186,6 +186,15 @@ impl GumpStudioTab {
         let _ = std::fs::write(p, self.favorites.to_json());
     }
 
+    /// Goes back to the last saved state (the Undo button and Ctrl+Z).
+    fn undo_step(&mut self) {
+        if let Some(prev) = self.undo.pop() {
+            self.doc = prev;
+            self.selected = None;
+            self.multi.clear();
+        }
+    }
+
     fn push_undo(&mut self) {
         if self.undo.len() >= 60 {
             self.undo.remove(0);
@@ -247,7 +256,10 @@ impl GumpStudioTab {
             return t.clone();
         }
         let bmp = d.gump_index.and_then(|gi| {
-            let parts: Vec<GumpBitmap> = (0..9).filter_map(|i| decode_gump_id(gi, id + i)).collect();
+            // a piece that does not decode (missing or empty) is left blank: filtering it out would
+            // shift the others and make the whole frame disappear
+            let blank = || GumpBitmap { width: 0, height: 0, rgba: Vec::new() };
+            let parts: Vec<GumpBitmap> = (0..9).map(|i| decode_gump_id(gi, id + i).unwrap_or_else(blank)).collect();
             compose_resizepic(&parts, w, h)
         });
         self.upload(ctx, key, bmp)
@@ -391,8 +403,13 @@ impl GumpStudioTab {
         egui::CentralPanel::default().show_inside(ui, |ui| self.canvas(ui, ctx, d));
         if let Some(mode) = self.picker_mode {
             self.picker_window(ctx, d, mode);
-        } else if !ctx.wants_keyboard_input() && ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
-            self.delete_selected();
+        } else if !ctx.wants_keyboard_input() {
+            // Ctrl+Z (Cmd+Z on macOS) undoes, like the Undo button; Delete removes the selection
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::Z)) {
+                self.undo_step();
+            } else if ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
+                self.delete_selected();
+            }
         }
     }
 
@@ -437,10 +454,7 @@ impl GumpStudioTab {
                 }
             }
             if ui.add_enabled(!self.undo.is_empty(), egui::Button::new(t!("gs.undo"))).clicked() {
-                if let Some(prev) = self.undo.pop() {
-                    self.doc = prev;
-                    self.selected = None;
-                }
+                self.undo_step();
             }
         });
         ui.horizontal(|ui| {

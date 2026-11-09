@@ -52,30 +52,7 @@ pub fn tile_at(px: f32, py: f32) -> (i32, i32) {
     )
 }
 
-/// The sort key: the diagonal first, the priority breaking ties in hundredths.
-pub fn depth(x: i32, y: i32, priority: i32) -> f32 {
-    (x + y) as f32 + (127 + priority) as f32 * 0.01
-}
-
-/// The priority of a static on its tile, as in the client: its z, one less for background
-/// pieces, one more for what has height and for what moves with a house.
-pub fn static_priority(z: i32, tile_flags: u64, height: u8) -> i32 {
-    let mut priority = z;
-    if tile_flags & flags::BACKGROUND != 0 {
-        priority -= 1;
-    }
-    if height != 0 {
-        priority += 1;
-    }
-    if tile_flags & flags::MULTI_MOVABLE != 0 {
-        priority += 1;
-    }
-    priority
-}
-
-pub fn static_depth(x: i32, y: i32, z: i32, tile_flags: u64, height: u8) -> f32 {
-    depth(x, y, static_priority(z, tile_flags, height))
-}
+pub use uo_core::iso_order::{depth, static_depth, static_priority};
 
 /// The height the client uses to sort a sloped land tile: the average of its corners, or the
 /// lower diagonal pair when the tile folds.

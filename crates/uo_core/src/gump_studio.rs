@@ -636,8 +636,9 @@ pub fn is_resizepic_at(id: u32, lists: &ResizepicLists, size_of: impl Fn(u32) ->
     if lists.is_invalid(id) {
         return false;
     }
-    // the manual `valid` list wins over the shape rules (when the nine gumps exist)
-    if lists.is_valid(id) && (0..9).all(|k| size_of(id + k).is_some()) {
+    // the manual `valid` list wins over the shape rules. Only the first piece has to exist: some frames
+    // ship with a piece missing (40353 has eight of nine) and are drawn with that piece left blank.
+    if lists.is_valid(id) && size_of(id).is_some() {
         return true;
     }
     let small = |(w, h): (u32, u32)| w > 0 && h > 0 && w <= 512 && h <= 512;
@@ -1006,6 +1007,38 @@ mod tests {
         assert!(l.is_valid(83) && !l.is_valid(84));
         assert!(l.is_invalid(11) && !l.is_invalid(13));
         assert!(ResizepicLists::builtin().is_valid(83) && ResizepicLists::builtin().is_invalid(7500));
+    }
+
+    #[test]
+    fn the_owner_confirmed_resizepics_are_in_the_builtin_list() {
+        let l = ResizepicLists::builtin();
+        for id in [83, 3600, 5100, 5150, 5170, 9380, 9390, 9400, 9450, 9500, 9550, 9568, 30536, 39925, 40000, 40353] {
+            assert!(l.is_valid(id) && !l.is_invalid(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_valid_listed_frame_with_a_missing_piece_is_still_a_resizepic() {
+        let lists = ResizepicLists::parse("valid 40353\n");
+        let size_of = |id: u32| (40353..40361).contains(&id).then_some((20, 20)); // the ninth piece (40361) is missing
+        assert!(is_resizepic_at(40353, &lists, size_of, |_| false));
+        assert!(!is_resizepic_at(40354, &lists, size_of, |_| false), "only listed ids get the pass");
+        let none = |_: u32| None;
+        assert!(!is_resizepic_at(40353, &lists, none, |_| false), "no first piece: not a frame");
+    }
+
+    #[test]
+    fn a_blank_piece_does_not_hide_the_frame() {
+        let solid = |w: u32, h: u32| GumpBitmap { width: w, height: h, rgba: [200u8, 100, 50, 255].repeat((w * h) as usize) };
+        let blank = || GumpBitmap { width: 0, height: 0, rgba: Vec::new() };
+        // nine pieces, the centre one is missing
+        let parts: Vec<GumpBitmap> = (0..9).map(|i| if i == 4 { blank() } else { solid(4, 4) }).collect();
+        let out = compose_resizepic(&parts, 20, 20).expect("frame");
+        assert_eq!((out.width, out.height), (20, 20));
+        let alpha = |x: usize, y: usize| out.rgba[(y * 20 + x) * 4 + 3];
+        assert_eq!(alpha(0, 0), 255, "corner drawn");
+        assert_eq!(alpha(10, 0), 255, "top edge drawn");
+        assert_eq!(alpha(10, 10), 0, "the missing centre stays empty");
     }
 
     #[test]

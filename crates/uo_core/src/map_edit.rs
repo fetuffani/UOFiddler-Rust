@@ -146,9 +146,14 @@ fn encode_statics(statics: &[StaticItem]) -> Vec<u8> {
 /// A block as the client files hold it (no mapdif / stadif patches: the editor works on the
 /// base map, which is what modern clients read).
 pub fn read_block(maps: &MapManager, map_id: usize, bx: u32, by: u32) -> Option<MapBlock> {
-    let land = maps.land_block(map_id, bx, by, false)?;
+    read_block_with(maps, map_id, bx, by, false)
+}
+
+/// Like `read_block`, with the mapdif / stadif patches folded in when `use_diff` is set (the viewer).
+pub fn read_block_with(maps: &MapManager, map_id: usize, bx: u32, by: u32, use_diff: bool) -> Option<MapBlock> {
+    let land = maps.land_block(map_id, bx, by, use_diff)?;
     let statics = maps
-        .static_block(map_id, bx, by, false)
+        .static_block(map_id, bx, by, use_diff)
         .map(decode_statics)
         .unwrap_or_default();
     Some(MapBlock {

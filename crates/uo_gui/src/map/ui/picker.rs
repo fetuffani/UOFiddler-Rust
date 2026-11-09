@@ -1966,6 +1966,7 @@ mod tests {
             textures: None,
             tiledata: None,
             hues: Some(&hues),
+            use_diff: false,
             cache: Default::default(),
         };
         let ctx = egui::Context::default();
@@ -2025,6 +2026,7 @@ mod tests {
             textures: None,
             tiledata: Some(&tiledata),
             hues: hues.as_ref(),
+            use_diff: false,
             cache: Default::default(),
         };
         let statics = build(Kind::Static, &assets);

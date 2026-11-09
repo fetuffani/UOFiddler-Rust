@@ -167,6 +167,7 @@ impl IsoView {
             key.map_id == assets.map_id
                 && key.cut == self.cut
                 && key.show_statics == self.show_statics
+                && key.use_diff == assets.use_diff
                 && key.generation == self.generation
                 && key.region.contains(&needed)
         };
@@ -177,6 +178,7 @@ impl IsoView {
                 region: needed.grown(16).snapped_to_blocks(),
                 cut: self.cut,
                 show_statics: self.show_statics,
+                use_diff: assets.use_diff,
                 generation: self.generation,
             };
             self.scene.build(ui.ctx(), &mut self.atlas, assets, key);

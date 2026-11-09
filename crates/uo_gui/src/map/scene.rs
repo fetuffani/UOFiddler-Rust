@@ -117,6 +117,8 @@ pub struct SceneKey {
     pub region: Region,
     pub cut: Cut,
     pub show_statics: bool,
+    /// the mapdif / stadif patches are shown
+    pub use_diff: bool,
     /// Bumped by whoever changes the map (edits, saves, reloads).
     pub generation: u64,
 }

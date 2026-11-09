@@ -11,7 +11,7 @@ fn main() {
         let d = mi.get_data(id).unwrap();
         for (label, size) in [("old", if d.len() % 16 == 0 && d.len() % 12 != 0 { 16 } else { 12 }), ("new", rs)] {
             let s = MultiStructure::parse_sized(id as u32, &d, size).unwrap();
-            let Some(bmp) = s.render_isometric(127, |item| art.get_data(0x4000 + item as usize).and_then(|a| decode_static(&a))) else {
+            let Some(bmp) = s.render_isometric(127, |item| art.get_data(0x4000 + item as usize).and_then(|a| decode_static(&a)), |_| (0, 0)) else {
                 println!("multi {} {} -> {} comps, RENDER FAILED (None)", id, label, s.components.len());
                 continue;
             };
@@ -28,7 +28,7 @@ fn all(mi: &FileIndex, art: &FileIndex, rs: usize) {
         if !mi.is_valid(id) { continue; }
         let d = mi.get_data(id).unwrap();
         let r = MultiStructure::parse_sized(id as u32, &d, rs)
-            .and_then(|s| s.render_isometric(127, |i| art.get_data(0x4000 + i as usize).and_then(|a| decode_static(&a))));
+            .and_then(|s| s.render_isometric(127, |i| art.get_data(0x4000 + i as usize).and_then(|a| decode_static(&a)), |_| (0, 0)));
         if r.is_some() { ok += 1 } else { bad.push(id) }
     }
     println!("ALL multis: render ok {} failed {} {:?}", ok, bad.len(), &bad[..bad.len().min(20)]);

@@ -20,6 +20,8 @@ pub struct MapRes<'a> {
     pub tiledata: Option<&'a TileDataManager>,
     pub hues: Option<&'a HuesManager>,
     pub radar: Option<&'a RadarColManager>,
+    /// show the mapdif / stadif patches in the view
+    pub use_diff: bool,
 }
 
 const RADAR_TILES: u32 = 256;
@@ -36,6 +38,8 @@ pub struct MapPanel {
     /// The (facet, x, y) the view was last put over, to follow the app's coordinates.
     synced: Option<(usize, u32, u32)>,
     radar: Option<(egui::TextureHandle, usize, u32, u32, u64)>,
+    /// whether the radar inset was drawn with the mapdif patches
+    radar_diff: bool,
     hover: Option<Hover>,
 }
 
@@ -49,6 +53,7 @@ impl Default for MapPanel {
             picker: Picker::default(),
             synced: None,
             radar: None,
+            radar_diff: true,
             hover: None,
         }
     }
@@ -72,6 +77,7 @@ impl MapPanel {
             textures: res.textures,
             tiledata: res.tiledata,
             hues: res.hues,
+            use_diff: res.use_diff,
             cache: Default::default(),
         };
         if !res.maps.has_map(map_id) {
@@ -119,7 +125,7 @@ impl MapPanel {
 
         let text = self.status_text(&assets);
         if let Some(radar) = res.radar {
-            self.radar_inset(ui, rect, res.maps, radar, map_id, x, y);
+            self.radar_inset(ui, rect, res.maps, radar, map_id, x, y, res.use_diff);
         }
         if ui.input(|i| i.key_pressed(egui::Key::F11)) && !ui.ctx().wants_keyboard_input() {
             self.open_editor(map_id);
@@ -186,7 +192,12 @@ impl MapPanel {
         map_id: usize,
         x: &mut u32,
         y: &mut u32,
+        use_diff: bool,
     ) {
+        if self.radar_diff != use_diff {
+            self.radar_diff = use_diff;
+            self.radar = None; // drawn again with / without the patches
+        }
         let half = RADAR_TILES / 2;
         let (w, h) = (maps.actual_widths[map_id], MAP_DEFS[map_id].height);
         // Re-render when the camera gets a quarter of the radar away from where it was rendered.
@@ -210,7 +221,7 @@ impl MapPanel {
                 RADAR_TILES / 8,
                 radar,
                 true,
-                false,
+                use_diff,
             ) {
                 let img =
                     egui::ColorImage::from_rgba_unmultiplied([iw as usize, ih as usize], &rgba);
@@ -326,6 +337,7 @@ impl MapPanel {
                 textures: res.textures,
                 tiledata: res.tiledata,
                 hues: res.hues,
+                use_diff: false, // the editor works on the base map, which is what it saves
                 cache: Default::default(),
             };
             editor::chrome::chrome(
